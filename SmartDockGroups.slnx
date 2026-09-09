@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/SmartDockGroups.App/SmartDockGroups.App.csproj" />
+    <Project Path="src/SmartDockGroups.Core/SmartDockGroups.Core.csproj" />
   </Folder>
 </Solution>
