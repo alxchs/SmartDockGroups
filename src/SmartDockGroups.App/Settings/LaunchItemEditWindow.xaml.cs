@@ -1,4 +1,5 @@
 using System.Windows;
+using SmartDockGroups.App.Theming;
 using SmartDockGroups.Core.Models;
 using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
@@ -6,7 +7,7 @@ using OpenFolderDialog = Microsoft.Win32.OpenFolderDialog;
 
 namespace SmartDockGroups.App.Settings;
 
-public partial class LaunchItemEditWindow : Window
+public partial class LaunchItemEditWindow : ModernWindow
 {
     private readonly LaunchItem _item;
 

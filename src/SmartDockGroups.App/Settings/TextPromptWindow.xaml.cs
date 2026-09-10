@@ -1,8 +1,9 @@
 using System.Windows;
+using SmartDockGroups.App.Theming;
 
 namespace SmartDockGroups.App.Settings;
 
-public partial class TextPromptWindow : Window
+public partial class TextPromptWindow : ModernWindow
 {
     public string Value => ValueBox.Text.Trim();
 

@@ -1,10 +1,11 @@
 using System.Globalization;
 using System.Windows;
+using SmartDockGroups.App.Theming;
 using SmartDockGroups.Core.Models;
 
 namespace SmartDockGroups.App.Settings;
 
-public partial class ThemeEditWindow : Window
+public partial class ThemeEditWindow : ModernWindow
 {
     private readonly LauncherConfiguration _configuration;
     private readonly MenuCategory? _category;
