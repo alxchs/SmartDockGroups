@@ -1,0 +1,22 @@
+<Project>
+  <!--
+    A versão vive num único lugar — o arquivo VERSION na raiz do repositório — do
+    mesmo jeito que os projetos Delphi do Alexandre fazem (ver IGCParam/build.ps1).
+    Isso evita o que aconteceria com a versão espalhada em vários .csproj: o número
+    escrito divergir do que realmente saiu compilado.
+
+    Só os projetos dentro de src/ herdam isto (é onde o MSBuild encontra este
+    arquivo subindo a árvore); as ferramentas em tools/ ficam de fora de propósito,
+    por não fazerem parte do produto versionado.
+  -->
+  <PropertyGroup>
+    <SmartDockGroupsVersionFile>$(MSBuildThisFileDirectory)..\VERSION</SmartDockGroupsVersionFile>
+    <SmartDockGroupsVersion Condition="Exists('$(SmartDockGroupsVersionFile)')">$([System.IO.File]::ReadAllText('$(SmartDockGroupsVersionFile)').Trim())</SmartDockGroupsVersion>
+    <SmartDockGroupsVersion Condition="'$(SmartDockGroupsVersion)' == ''">0.0.0.0</SmartDockGroupsVersion>
+
+    <Version>$(SmartDockGroupsVersion)</Version>
+    <AssemblyVersion>$(SmartDockGroupsVersion)</AssemblyVersion>
+    <FileVersion>$(SmartDockGroupsVersion)</FileVersion>
+    <InformationalVersion>$(SmartDockGroupsVersion)</InformationalVersion>
+  </PropertyGroup>
+</Project>
