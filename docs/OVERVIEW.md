@@ -50,6 +50,44 @@ mkfile d src/SmartDockGroups.App/SmartDockGroups.App.csproj
 `mkfile` não reconhece o `.slnx` da raiz — precisa apontar para o `.csproj` do
 App (ele arrasta o `SmartDockGroups.Core` pela referência de projeto).
 
+## Instalador e distribuição
+
+```
+mkfile p src/SmartDockGroups.App/SmartDockGroups.App.csproj
+```
+
+`mkfile package` num projeto .NET olha primeiro se existe
+`tools\build_installer.ps1` ao lado do `.csproj` — a mesma convenção que o
+lado Flutter do `mkfile` já usa para `tools\build_apk.py`. Quando existe, ele
+manda no que "empacotar" quer dizer; aqui isso é:
+
+1. `dotnet publish` **self-contained, single-file, win-x64** — de propósito,
+   não framework-dependent: o instalador precisa rodar numa máquina que pode
+   não ter o runtime do .NET 10 instalado, já que o objetivo é justamente
+   baixar e rodar fora desta rede.
+2. Compilar `tools\SmartDockGroups.iss` com o **Inno Setup** (`ISCC.exe`,
+   instalado via `winget install --id JRSoftware.InnoSetup`), passando a
+   versão lida do `VERSION` como `/DMyAppVersion=...`.
+
+O instalador resultante (`dist\SmartDockGroupsSetup-<versão>.exe`, pasta fora do
+controle de versão) instala por usuário em
+`%LocalAppData%\Programs\SmartDockGroups` — sem pedir elevação — com atalho no
+menu iniciar, ícone de área de trabalho opcional e entrada em
+Adicionar/Remover Programas. O desinstalador não toca em
+`%AppData%\SmartDockGroups` (configuração e grupos do usuário) de propósito.
+
+Este repositório precisou de um `NuGet.Config` próprio (na raiz) que
+adiciona ao `nuget.org` o mapeamento dos pacotes de runtime que o publish
+self-contained baixa (`Microsoft.NETCore.App.Runtime.*`,
+`Microsoft.WindowsDesktop.App.Runtime.*` etc.) — a máquina de
+desenvolvimento tem um `NuGet.Config` global com `packageSourceMapping`
+restrito a uma lista fixa de outros projetos, que não inclui esses pacotes.
+O arquivo local só acrescenta ao mapeamento, nunca mexe no global.
+
+O instalador é publicado como **release do GitHub** (`alxchs/SmartDockGroups`,
+repositório público), anexado à tag da versão — é o link estável que
+funciona de fora desta rede, sem custo.
+
 ## Áreas do código
 
 ### Desktop (`src/SmartDockGroups.App/Desktop/`)
