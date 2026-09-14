@@ -44,11 +44,20 @@ sabe desenhar uma janela ou chamar uma API do Windows vive em `SmartDockGroups.A
 ## Compilar
 
 ```
-mkfile d src/SmartDockGroups.App/SmartDockGroups.App.csproj
+mkfile d      # ou mkfile r — de dentro da raiz do repo, acha o SmartDockGroups.slnx sozinho
 ```
 
-`mkfile` não reconhece o `.slnx` da raiz — precisa apontar para o `.csproj` do
-App (ele arrasta o `SmartDockGroups.Core` pela referência de projeto).
+O SDK do .NET já entende `.slnx` nativamente (`dotnet build`/`publish`), e o
+`mkfile` reconhece a extensão — não precisa mais apontar para o `.csproj` só
+para compilar. **Exceção:** `mkfile package` (gerar o instalador) ainda
+precisa do caminho explícito do `.csproj` do App:
+
+```
+mkfile package src/SmartDockGroups.App/SmartDockGroups.App.csproj
+```
+
+porque é ao lado desse arquivo que o `mkfile` procura
+`tools\build_installer.ps1` — ver "Instalador e distribuição" abaixo.
 
 ## Instalador e distribuição
 
