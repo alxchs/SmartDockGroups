@@ -1,16 +1,10 @@
 <Solution>
-  <Folder Name="/winuiapp/" />
-  <Folder Name="/winuiapp/src/">
-    <Project Path="winuiapp/src/WinUIApp.Application/WinUIApp.Application.csproj" />
-    <Project Path="winuiapp/src/WinUIApp.Domain/WinUIApp.Domain.csproj" />
-    <Project Path="winuiapp/src/WinUIApp.Infrastructure/WinUIApp.Infrastructure.csproj" />
-    <Project Path="winuiapp/src/WinUIApp.Localization/WinUIApp.Localization.csproj" />
-    <Project Path="winuiapp/src/WinUIApp.UI/WinUIApp.UI.csproj">
-      <Platform Project="x64" />
-    </Project>
-  </Folder>
   <Folder Name="/src/">
     <Project Path="src/SmartDockGroups.App/SmartDockGroups.App.csproj" />
     <Project Path="src/SmartDockGroups.Core/SmartDockGroups.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SmartDockGroups.Tests/SmartDockGroups.Tests.csproj" />
+    <Project Path="tests/GroupProbe/GroupProbe.csproj" />
   </Folder>
 </Solution>
