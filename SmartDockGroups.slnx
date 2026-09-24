@@ -6,7 +6,7 @@
     <Project Path="winuiapp/src/WinUIApp.Infrastructure/WinUIApp.Infrastructure.csproj" />
     <Project Path="winuiapp/src/WinUIApp.Localization/WinUIApp.Localization.csproj" />
     <Project Path="winuiapp/src/WinUIApp.UI/WinUIApp.UI.csproj">
-      <Platform Project="x86" />
+      <Platform Project="x64" />
     </Project>
   </Folder>
   <Folder Name="/src/">
