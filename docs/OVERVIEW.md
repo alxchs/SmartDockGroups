@@ -14,11 +14,11 @@ Android: grupos de atalhos, arquivos e pastas, exibidos como pastas de app
 fecháveis (mosaico 3×3 + selo de contagem) que abrem numa folha centralizada,
 ou como painéis livres com ícones soltos — a critério de cada grupo.
 
-Nome exibido: **Smart Dock Groups**. O nome interno do projeto,
-`SmartDockGroups`, continua em uso na pasta de dados
-(`%AppData%\SmartDockGroups`), no nome do processo e no repositório —
-trocar isso quebraria configurações já salvas dos usuários, então foi
-deixado de propósito fora do rebranding.
+Nome exibido: **Smart Dock Groups** — em janelas, bandeja, menu da área de
+trabalho, instalador e na descrição do processo (`AssemblyTitle`/`Product`
+do `.csproj` do App). Nome interno: `SmartDockGroups` — projetos,
+namespaces, executável (`SmartDockGroups.App.exe`), pasta de dados
+(`%AppData%\SmartDockGroups`), chaves de registro, mutex e pipe.
 
 ## Estrutura
 
@@ -27,14 +27,14 @@ SmartDockGroups.slnx
 VERSION                          ← versão única do produto, ver "Versionamento"
 src/
   Directory.Build.props          ← lê VERSION e aplica a src/SmartDockGroups.*
-  SmartDockGroups.Core/               modelos e persistência, sem UI
-  SmartDockGroups.App/                WPF: toda a interface e os serviços do Windows
+  SmartDockGroups.Core/           modelos e persistência, sem UI
+  SmartDockGroups.App/            WPF: toda a interface e os serviços do Windows
 tools/
   IconForge/                      gera o .ico oficial do app
 tests/
-  SmartDockGroups.Tests/              32 asserções xUnit (geometria de monitor, contrato do config)
+  SmartDockGroups.Tests/          32 asserções xUnit (geometria de monitor, contrato do config)
   GroupProbe/                     sonda que sobe o app e caracteriza os grupos
-  baseline/                       referência da master 5bf5ee8, para comparar refatorações
+  baseline/                       referência da master b46789b, para comparar refatorações
 docs/
   OVERVIEW.md                     este arquivo
   PROMPT.md                       o prompt único equivalente a tudo isto (histórico)
@@ -478,9 +478,6 @@ Para lançar uma versão nova: editar o `VERSION`, recompilar, commitar.
   (`MonitorPlacement`) e por um teste manual forçando coordenadas fora da
   tela; nunca foi visto um grupo atravessar para um segundo monitor físico
   nesta máquina (só há um disponível).
-- **Descrição do processo no Gerenciador de Tarefas** ainda mostra
-  `SmartDockGroups.App` — não é caption de janela, então ficou fora do
-  rebranding, mas é uma bandeira solta se quiser fechar 100%.
 - **Importar configurações só entra em vigor ao clicar em Salvar** na tela de
   Configurações — para um restore de backup isso é fácil de esquecer.
 

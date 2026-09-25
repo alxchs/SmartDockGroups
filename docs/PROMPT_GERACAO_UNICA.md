@@ -25,6 +25,8 @@ atalhos**, no espírito das pastas de app do Android: cada grupo é uma janela s
   por `src/Directory.Build.props`, que aplica `Version`, `AssemblyVersion` e `FileVersion`.
 - `src/SmartDockGroups.Core` (`net10.0`, **sem** WPF nem Win32): modelos e persistência.
 - `src/SmartDockGroups.App` (`net10.0-windows`, WPF): toda a interface e os serviços do Windows.
+  `AssemblyTitle` e `Product` = `Smart Dock Groups`, para a descrição do processo (Gerenciador
+  de Tarefas, propriedades do arquivo) mostrar o nome do produto em vez do nome do assembly.
 - `tools/` para o instalador (Inno Setup, `SmartDockGroups.iss` + `build_installer.ps1`).
 - `docs/OVERVIEW.md` (arquitetura e decisões) e `docs/PROMPT.md`, sempre em sincronia com o código.
 - `NuGet.Config` local que só **acrescenta** o mapeamento dos pacotes de runtime

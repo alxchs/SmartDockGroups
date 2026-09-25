@@ -66,6 +66,6 @@ O menu usa um ícone próprio de "visto" em vez de `ToggleState`, então o relat
 
 ## Linha de base
 
-`tests/baseline/` guarda o relatório e as capturas da **master em 5bf5ee8 (v1.1.1.0)**, que é a
+`tests/baseline/` guarda o relatório e as capturas da **master em b46789b (v1.1.1.0)**, que é a
 referência contra a qual a higienização foi comparada. Regerar só quando o comportamento de
 grupo mudar de propósito — e, quando isso acontecer, dizer no commit o que mudou e por quê.

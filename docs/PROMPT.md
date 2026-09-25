@@ -579,3 +579,11 @@ mudar nada no comportamento dos grupos**, e prove que não mudou.
    porque esperava os submenus por `sleep` fixo — troque por esperar o estado que o menu
    reporta. Medição que muda sozinha não distingue refatoração de ruído.
 3. Comparar cada etapa contra a linha de base e **exigir zero divergência** nos 316 campos.
+
+## 23. O nome do produto também na descrição do processo
+
+O Gerenciador de Tarefas ainda mostra `SmartDockGroups.App` — o nome do assembly — em vez de
+**"Smart Dock Groups"**. Feche essa última ponta: `AssemblyTitle` e `Product` no `.csproj` do
+App, sem mudar mais nada.
+
+- **Prova**: a sonda da seção 22 contra a linha de base tem que dar **zero divergência**.
