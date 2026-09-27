@@ -28,6 +28,7 @@ internal sealed class IconCacheService : IDisposable
     private const uint FileAttributeNormal = 0x00000080;
 
     private static Guid _imageListId = new("46EB5926-582E-4017-9FDF-E8998DAA0950");
+    private static Guid _shellItemImageFactoryId = new("bcc18b79-ba16-442f-80c4-8a59c30c463b");
 
     private readonly string _cacheDirectory;
     private readonly Dictionary<string, DrawingIcon> _memoryCache = new();
@@ -47,23 +48,28 @@ internal sealed class IconCacheService : IDisposable
         }
 
         var resolvedPath = ResolveFullPath(targetPath);
-        if (resolvedPath is null)
+        DrawingIcon? icon = null;
+        if (resolvedPath is not null)
         {
-            return null;
+            try
+            {
+                icon = DrawingIcon.ExtractAssociatedIcon(resolvedPath);
+            }
+            catch (IOException)
+            {
+            }
+            catch (ArgumentException)
+            {
+            }
         }
 
-        DrawingIcon? icon;
-        try
+        if (icon is null)
         {
-            icon = DrawingIcon.ExtractAssociatedIcon(resolvedPath);
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (ArgumentException)
-        {
-            return null;
+            var image = GetImageSource(targetPath);
+            if (image is BitmapSource bs)
+            {
+                icon = BitmapSourceToIcon(bs);
+            }
         }
 
         if (icon is not null)
@@ -89,28 +95,306 @@ internal sealed class IconCacheService : IDisposable
 
     private ImageSource? LoadImageSource(string targetPath)
     {
-        var resolvedPath = ResolveFullPath(targetPath);
-        if (resolvedPath is null)
-        {
-            return null;
-        }
-
-        var cacheFilePath = Path.Combine(_cacheDirectory, BuildCacheKey(resolvedPath) + ".png");
+        var cacheFilePath = Path.Combine(_cacheDirectory, BuildCacheKey(targetPath) + ".png");
 
         var fromDisk = LoadPngFromDisk(cacheFilePath);
         if (fromDisk is not null)
         {
-            return fromDisk;
+            return TrimTransparentMargins(fromDisk);
         }
 
-        var extracted = ExtractLargeIcon(resolvedPath) ?? ExtractFallbackIcon(resolvedPath);
+        var extracted = ExtractTargetIcon(targetPath);
         if (extracted is null)
         {
             return null;
         }
 
+        if (extracted is BitmapSource bitmap)
+        {
+            extracted = TrimTransparentMargins(bitmap);
+        }
+
         TryPersistPng(extracted, cacheFilePath);
         return extracted;
+    }
+
+    private static ImageSource? ExtractTargetIcon(string targetPath)
+    {
+        var resolvedPath = ResolveFullPath(targetPath);
+        if (resolvedPath is not null)
+        {
+            if (resolvedPath.EndsWith(".url", StringComparison.OrdinalIgnoreCase))
+            {
+                var url = ReadUrlFromShortcut(resolvedPath);
+                if (!string.IsNullOrEmpty(url))
+                {
+                    var urlIcon = ExtractUriIcon(url);
+                    if (urlIcon is not null)
+                    {
+                        return urlIcon;
+                    }
+                }
+            }
+
+            var fromShell = ExtractLargeIcon(resolvedPath) ?? ExtractFallbackIcon(resolvedPath);
+            if (fromShell is not null)
+            {
+                return fromShell;
+            }
+        }
+
+        return ExtractUriIcon(targetPath);
+    }
+
+    private static ImageSource? ExtractUriIcon(string target)
+    {
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            return null;
+        }
+
+        string scheme;
+        if (Uri.TryCreate(target, UriKind.Absolute, out var uri))
+        {
+            scheme = uri.Scheme;
+        }
+        else
+        {
+            var colonIndex = target.IndexOf(':');
+            if (colonIndex <= 0)
+            {
+                return null;
+            }
+            scheme = target.Substring(0, colonIndex);
+        }
+
+        // 1. Try ASSOCSTR_DEFAULTICON (15)
+        var iconRef = QueryAssociation(15, scheme);
+        if (!string.IsNullOrEmpty(iconRef))
+        {
+            var loaded = LoadFromIconReference(iconRef);
+            if (loaded is not null)
+            {
+                return loaded;
+            }
+        }
+
+        // 2. Try ASSOCSTR_EXECUTABLE (1)
+        var exePath = QueryAssociation(1, scheme);
+        if (!string.IsNullOrEmpty(exePath))
+        {
+            if (exePath.StartsWith("\"") && exePath.IndexOf('\"', 1) is int end && end > 0)
+            {
+                exePath = exePath.Substring(1, end - 1);
+            }
+            if (File.Exists(exePath))
+            {
+                var exeIcon = ExtractLargeIcon(exePath) ?? ExtractFallbackIcon(exePath);
+                if (exeIcon is not null)
+                {
+                    return exeIcon;
+                }
+            }
+        }
+
+        // 3. Try IShellItemImageFactory (handles shell:AppsFolder\... and shell items)
+        return ExtractShellItemImage(target);
+    }
+
+    private static ImageSource? LoadFromIconReference(string iconRef)
+    {
+        if (string.IsNullOrWhiteSpace(iconRef))
+        {
+            return null;
+        }
+
+        // Indirect string: @{Package...}
+        if (iconRef.StartsWith("@"))
+        {
+            var sb = new StringBuilder(1024);
+            if (SHLoadIndirectString(iconRef, sb, (uint)sb.Capacity, IntPtr.Zero) == 0)
+            {
+                var resolved = sb.ToString();
+                if (File.Exists(resolved))
+                {
+                    return LoadPngFromDisk(resolved);
+                }
+            }
+        }
+
+        // exe,index or direct file
+        var parts = iconRef.Split(',');
+        var filePath = parts[0].Trim('\"', ' ');
+        if (File.Exists(filePath))
+        {
+            if (filePath.EndsWith(".ico", StringComparison.OrdinalIgnoreCase) ||
+                filePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+                filePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
+                return ExtractLargeIcon(filePath) ?? ExtractFallbackIcon(filePath);
+            }
+
+            return LoadPngFromDisk(filePath);
+        }
+
+        return null;
+    }
+
+    private static string? QueryAssociation(int assocStr, string assoc)
+    {
+        try
+        {
+            uint len = 0;
+            AssocQueryString(0, assocStr, assoc, "open", null, ref len);
+            if (len == 0)
+            {
+                return null;
+            }
+
+            var sb = new StringBuilder((int)len);
+            if (AssocQueryString(0, assocStr, assoc, "open", sb, ref len) == 0)
+            {
+                return sb.ToString();
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private static ImageSource? ExtractShellItemImage(string target)
+    {
+        try
+        {
+            if (SHCreateItemFromParsingName(target, IntPtr.Zero, ref _shellItemImageFactoryId, out var factory) == 0 && factory is not null)
+            {
+                try
+                {
+                    if (factory.GetImage(new SIZE(256, 256), SIIGBF.SIIGBF_ICONONLY, out var hbm) == 0 && hbm != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            var bs = Imaging.CreateBitmapSourceFromHBitmap(hbm, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                            bs.Freeze();
+                            return bs;
+                        }
+                        finally
+                        {
+                            DeleteObject(hbm);
+                        }
+                    }
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(factory);
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private static string? ReadUrlFromShortcut(string filePath)
+    {
+        try
+        {
+            foreach (var line in File.ReadAllLines(filePath))
+            {
+                if (line.StartsWith("URL=", StringComparison.OrdinalIgnoreCase))
+                {
+                    return line.Substring(4).Trim();
+                }
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return null;
+    }
+
+    internal static BitmapSource TrimTransparentMargins(BitmapSource source)
+    {
+        var formatted = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        int width = formatted.PixelWidth;
+        int height = formatted.PixelHeight;
+        if (width <= 0 || height <= 0)
+        {
+            return source;
+        }
+
+        int stride = width * 4;
+        byte[] pixels = new byte[stride * height];
+        formatted.CopyPixels(pixels, stride, 0);
+
+        int minX = int.MaxValue, minY = int.MaxValue, maxX = -1, maxY = -1;
+        for (int y = 0; y < height; y++)
+        {
+            int rowOffset = y * stride;
+            for (int x = 0; x < width; x++)
+            {
+                byte alpha = pixels[rowOffset + x * 4 + 3];
+                if (alpha > 10)
+                {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+
+        if (maxX < minX || maxY < minY)
+        {
+            return source; // fully transparent
+        }
+
+        int boundW = maxX - minX + 1;
+        int boundH = maxY - minY + 1;
+
+        // If it already fills at least 90% of the canvas and is roughly centered, keep it intact
+        if (boundW >= width * 0.9 && boundH >= height * 0.9 && minX <= width * 0.05 && minY <= height * 0.05)
+        {
+            return source;
+        }
+
+        var cropped = new CroppedBitmap(source, new Int32Rect(minX, minY, boundW, boundH));
+        cropped.Freeze();
+        return cropped;
+    }
+
+    private static DrawingIcon? BitmapSourceToIcon(BitmapSource bs)
+    {
+        try
+        {
+            using var ms = new MemoryStream();
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bs));
+            encoder.Save(ms);
+            ms.Position = 0;
+            using var bmp = new System.Drawing.Bitmap(ms);
+            var hIcon = bmp.GetHicon();
+            try
+            {
+                return (DrawingIcon)DrawingIcon.FromHandle(hIcon).Clone();
+            }
+            finally
+            {
+                DestroyIcon(hIcon);
+            }
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>The shell's jumbo list gives a 256px image with its alpha intact.</summary>
@@ -186,7 +470,7 @@ internal sealed class IconCacheService : IDisposable
         }
     }
 
-    private static ImageSource? LoadPngFromDisk(string cacheFilePath)
+    private static BitmapSource? LoadPngFromDisk(string cacheFilePath)
     {
         if (!File.Exists(cacheFilePath))
         {
@@ -272,7 +556,7 @@ internal sealed class IconCacheService : IDisposable
 
     private static string BuildCacheKey(string targetPath)
     {
-        var lastWriteTicks = File.GetLastWriteTimeUtc(targetPath).Ticks;
+        var lastWriteTicks = File.Exists(targetPath) ? File.GetLastWriteTimeUtc(targetPath).Ticks : 0L;
         var identity = $"{targetPath.ToLowerInvariant()}|{lastWriteTicks}";
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(identity));
         return Convert.ToHexString(hash);
@@ -286,6 +570,30 @@ internal sealed class IconCacheService : IDisposable
         public uint dwAttributes;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szDisplayName;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string szTypeName;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SIZE
+    {
+        public int cx;
+        public int cy;
+        public SIZE(int cx, int cy) { this.cx = cx; this.cy = cy; }
+    }
+
+    [Flags]
+    private enum SIIGBF
+    {
+        SIIGBF_RESIZETOFIT = 0x00,
+        SIIGBF_ICONONLY = 0x04
+    }
+
+    [ComImport]
+    [Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellItemImageFactory
+    {
+        [PreserveSig]
+        int GetImage([In] SIZE size, [In] SIIGBF flags, [Out] out IntPtr phbm);
     }
 
     [ComImport]
@@ -302,6 +610,22 @@ internal sealed class IconCacheService : IDisposable
         [PreserveSig] int Remove(int i);
         [PreserveSig] int GetIcon(int i, int flags, out IntPtr picon);
     }
+
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+    private static extern int AssocQueryString(int flags, int str, string pszAssoc, string pszExtra, StringBuilder? pszOut, ref uint pcchOut);
+
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int SHLoadIndirectString(string pszSource, StringBuilder pszOutBuf, uint cchOutBuf, IntPtr ppvReserved);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = true)]
+    private static extern int SHCreateItemFromParsingName(
+        [In, MarshalAs(UnmanagedType.LPWStr)] string pszPath,
+        [In] IntPtr pbc,
+        [In] ref Guid riid,
+        [Out, MarshalAs(UnmanagedType.Interface)] out IShellItemImageFactory? ppv);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr hObject);
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref ShFileInfo psfi, uint cbFileInfo, uint uFlags);

@@ -9,7 +9,7 @@ publicação.
 dotnet test tests/SmartDockGroups.Tests
 ```
 
-32 testes, ~1 s. Cobrem a lógica que não tem tela:
+40 testes, ~1 s. Cobrem a lógica que não tem tela e utilitários de ícone:
 
 - **`MonitorPlacementTests`** — a geometria que resgata um grupo quando o conjunto de
   monitores mudou. O `docs/OVERVIEW.md` registrava que essa matemática tinha sido conferida
@@ -20,6 +20,11 @@ dotnet test tests/SmartDockGroups.Tests
   campos de grupo, determinismo da serialização, leitura de configurações escritas por
   versões anteriores (`Grid`/`ByType`, `AreaTransparent`/`TitleTransparent`) e a identidade
   estável do grupo (`Id`) de que o atalho da barra de tarefas depende.
+- **`IconCacheServiceTests`** — extração e corte de margens transparentes vazias em ícones
+  (`TrimTransparentMargins`), resolução de URIs de protocolo (`msteams:`, `ms-settings:`, `http:`),
+  e integridade de cache com destinos variados.
+- **`IconVisualCaptureTests`** — renderização do ladrilho de pasta de app (`AppFolderTile`)
+  com validação visual do mosaico 3×3.
 
 O projeto enxerga os tipos `internal` do App por um `InternalsVisibleTo` declarado em
 `src/SmartDockGroups.App/AssemblyInfo.cs`.

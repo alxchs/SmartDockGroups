@@ -32,7 +32,7 @@ src/
 tools/
   IconForge/                      gera o .ico oficial do app
 tests/
-  SmartDockGroups.Tests/          32 asserções xUnit (geometria de monitor, contrato do config)
+  SmartDockGroups.Tests/          40 asserções xUnit (geometria de monitor, contrato do config, corte de transparência de ícones, renderização)
   GroupProbe/                     sonda que sobe o app e caracteriza os grupos
   baseline/                       referência da master b46789b, para comparar refatorações
 docs/
@@ -344,9 +344,16 @@ funciona de fora desta rede, sem custo.
   um segundo ícone de bandeja ou duplicar os grupos.
 - **`IconCacheService`** — ícones vêm da lista de imagens do shell
   (`SHGetImageList`, tamanho jumbo/256px), com fallback em
-  `Icon.ExtractAssociatedIcon`. O cache em disco é **PNG**, não `.ico`:
-  salvar como `.ico` e reler achatava o canal alfa, deixando os ícones com
-  halo preto ou branco.
+  `Icon.ExtractAssociatedIcon`, `IShellItemImageFactory` e resolução de URIs de
+  protocolo (`msteams:`, `ms-settings:`, `http:`, etc.) e `.url` via registro
+  (`AssocQueryString`) e referências indiretas UWP (`SHLoadIndirectString`).
+  O cache em disco é **PNG**, não `.ico`: salvar como `.ico` e reler achatava
+  o canal alfa, deixando os ícones com halo preto ou branco. Bitmaps que contêm
+  uma resolução pequena ancorada no canto de um canvas transparente (comportamento
+  comum do ImageList jumbo para atalhos de protocolo) passam por corte automático
+  de margens transparentes (`TrimTransparentMargins`), evitando que o mosaico 3×3
+  do ladrilho de pasta de app reduza um ícone útil a poucos pixels. Além disso,
+  `AppFolderTile` alinha os ícones centralizadamente nas células do mosaico.
 - **`ShellCommands`** — os comandos de arquivo do menu de um item (executar
   como administrador, abrir local do arquivo, copiar como caminho,
   propriedades). Só aparecem quando o alvo é um arquivo/pasta real.
@@ -483,14 +490,15 @@ Para lançar uma versão nova: editar o `VERSION`, recompilar, commitar.
 
 ## Testes
 
-Não há projeto de teste automatizado. A verificação nesta fase do projeto foi
-toda manual: compilar com `mkfile`, rodar o app com uma configuração de teste
-temporária (nunca a do usuário — sempre copiada de volta ao original depois),
-e observar via screenshot + sondas Win32 escritas em C# quando PowerShell
-não bastava (ver nota abaixo). `MonitorPlacement` teve sua matemática
-verificada por um pequeno programa de console com ~15 asserções cobrindo
-resgate, proporção mantida e monitores de tamanhos diferentes — não commitado
-neste repositório.
+O projeto conta com uma suíte automatizada de testes xUnit em `tests/SmartDockGroups.Tests`
+(40 asserções cobrindo geometria de monitor `MonitorPlacement`, integridade e contrato
+de serialização de `config.json`, extração e corte de transparência de ícones no
+`IconCacheService` e renderização do ladrilho `AppFolderTile`).
+
+Além dos testes unitários, há a sonda de caracterização em C# (`tests/GroupProbe`) que sobe
+a aplicação de verdade com um fixture de teste, valida backup por hash, mede a geometria
+das janelas, gera hash SHA-256 das capturas e inspeciona a árvore de menus via UI Automation,
+permitindo comparar com a linha de base via `compare_reports.py`.
 
 > **Nota sobre PowerShell para diagnóstico Win32:** `FindWindow("Progman",
 > $null)` em PowerShell retorna identificador vazio mesmo quando a janela

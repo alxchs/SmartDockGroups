@@ -587,3 +587,18 @@ O Gerenciador de Tarefas ainda mostra `SmartDockGroups.App` — o nome do assemb
 App, sem mudar mais nada.
 
 - **Prova**: a sonda da seção 22 contra a linha de base tem que dar **zero divergência**.
+
+## 24. Ícone minúsculo de atalho do Teams/URIs no mosaico da pasta de app
+
+Um grupo no modo "pasta de app" contendo atalho com URI de protocolo (como `msteams://...`) mostrava apenas um ponto minúsculo de ~5px no canto superior-esquerdo da célula do mosaico 3×3 (`AppFolderTile.cs`), enquanto no painel aberto o ícone aparecia em tamanho normal.
+
+**Causa raiz:** O ImageList Jumbo do shell (`ShilJumbo`, 256×256) devolvia o ícone em sua resolução original (ex.: 66×68 pixels para atalhos de protocolo) ancorado no canto `(0, 0)` de um canvas 256×256 com o restante inteiramente transparente (3.348 pixels não-transparentes de 65.536). O `AppFolderTile` aplicava `Stretch.Uniform` ao canvas inteiro de 256×256 dentro da célula de ~21×21, reduzindo a área útil a um ponto microscópico no canto. Além disso, `IconCacheService.ResolveFullPath` retornava nulo para URIs e `BuildCacheKey` disparava exceção ao tentar consultar `File.GetLastWriteTimeUtc` em URLs.
+
+**Correção:**
+1. `IconCacheService.TrimTransparentMargins`: analisa o canal alfa e recorta a imagem para o retângulo delimitador visível (`minX, minY, boundW, boundH`) quando a parte gráfica ocupa apenas uma fração desproporcional do canvas. O corte é aplicado tanto na extração quanto na leitura de PNGs em cache.
+2. Suporte estrutural a URIs de protocolo (`msteams:`, `ms-settings:`, `http:`, `https:`, `shell:`) e arquivos `.url`: resolução de executável associado via registro (`AssocQueryString`), extração de ícone com `IShellItemImageFactory`, e desreferenciação de recursos indiretos de pacotes UWP via `SHLoadIndirectString`.
+3. `IconCacheService.GetIcon`: converte `BitmapSource` para `DrawingIcon` via stream PNG em memória para que o painel (`DesktopGroupWindow`) também exiba ícones de URI perfeitamente.
+4. `AppFolderTile`: centralização do `Image` dentro da célula da grade (`HorizontalAlignment.Center`, `VerticalAlignment.Center`).
+
+- **Prova**: testes unitários xUnit em `tests/SmartDockGroups.Tests/IconCacheServiceTests.cs` (5 testes novos) e captura visual do mosaico em `tests/SmartDockGroups.Tests/IconVisualCaptureTests.cs` gerando `docs/execucoes/A-depois.png` em comparação a `docs/execucoes/A-antes.png`.
+

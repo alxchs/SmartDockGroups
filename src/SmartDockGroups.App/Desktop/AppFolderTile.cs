@@ -112,7 +112,9 @@ internal static class AppFolderTile
             {
                 Source = icon,
                 Stretch = Stretch.Uniform,
-                Margin = new Thickness(1.5)
+                Margin = new Thickness(1.5),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
         }
 
