@@ -13,7 +13,10 @@ public class ModernWindow : Window
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = System.Windows.Media.Brushes.Transparent;
-        Style = (Style)Application.Current.Resources["ModernWindowStyle"];
+        if (Application.Current?.Resources["ModernWindowStyle"] is Style style)
+        {
+            Style = style;
+        }
     }
 
     public override void OnApplyTemplate()

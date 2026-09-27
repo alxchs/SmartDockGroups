@@ -75,16 +75,29 @@ public static class LocalizationService
 
     private static Dictionary<string, string> LoadEmbedded(string code)
     {
-        var uri = new Uri($"Localization/Strings.{code}.json", UriKind.Relative);
-        var resourceInfo = System.Windows.Application.GetResourceStream(uri);
-        if (resourceInfo is null)
+        try
+        {
+            var uri = new Uri($"pack://application:,,,/SmartDockGroups.App;component/Localization/Strings.{code}.json", UriKind.Absolute);
+            var resourceInfo = System.Windows.Application.GetResourceStream(uri);
+            if (resourceInfo is null)
+            {
+                uri = new Uri($"Localization/Strings.{code}.json", UriKind.Relative);
+                resourceInfo = System.Windows.Application.GetResourceStream(uri);
+            }
+
+            if (resourceInfo is null)
+            {
+                return new Dictionary<string, string>();
+            }
+
+            using var stream = resourceInfo.Stream;
+            using var reader = new StreamReader(stream);
+            var json = reader.ReadToEnd();
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
+        }
+        catch
         {
             return new Dictionary<string, string>();
         }
-
-        using var stream = resourceInfo.Stream;
-        using var reader = new StreamReader(stream);
-        var json = reader.ReadToEnd();
-        return JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
     }
 }

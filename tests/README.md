@@ -9,7 +9,7 @@ publicação.
 dotnet test tests/SmartDockGroups.Tests
 ```
 
-40 testes, ~1 s. Cobrem a lógica que não tem tela e utilitários de ícone:
+47 testes, ~1 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
 
 - **`MonitorPlacementTests`** — a geometria que resgata um grupo quando o conjunto de
   monitores mudou. O `docs/OVERVIEW.md` registrava que essa matemática tinha sido conferida
@@ -25,6 +25,9 @@ dotnet test tests/SmartDockGroups.Tests
   e integridade de cache com destinos variados.
 - **`IconVisualCaptureTests`** — renderização do ladrilho de pasta de app (`AppFolderTile`)
   com validação visual do mosaico 3×3.
+- **`PromptPositioningTests`** — cálculo de centralização de janelas por monitor com DPI heterogêneo,
+  garantia de contenção na área de trabalho útil, conversão física para DIPs WPF, e validação interativa
+  em ambiente multi-monitor real (`Screen.AllScreens`) com medição de retângulos e capturas.
 
 O projeto enxerga os tipos `internal` do App por um `InternalsVisibleTo` declarado em
 `src/SmartDockGroups.App/AssemblyInfo.cs`.

@@ -6,7 +6,7 @@
                       Title="{loc:Loc common.appName}"
                       Width="400"
                       SizeToContent="Height"
-                      WindowStartupLocation="CenterOwner"
+                      WindowStartupLocation="Manual"
                       ResizeMode="NoResize"
                       ShowInTaskbar="False">
     <!--

@@ -32,7 +32,7 @@ src/
 tools/
   IconForge/                      gera o .ico oficial do app
 tests/
-  SmartDockGroups.Tests/          40 asserções xUnit (geometria de monitor, contrato do config, corte de transparência de ícones, renderização)
+  SmartDockGroups.Tests/          47 asserções xUnit (geometria de monitor, posicionamento multimonitor do diálogo de renomear, contrato do config, corte de transparência de ícones, renderização)
   GroupProbe/                     sonda que sobe o app e caracteriza os grupos
   baseline/                       referência da master b46789b, para comparar refatorações
 docs/
@@ -366,6 +366,19 @@ funciona de fora desta rede, sem custo.
   independentes: abrir o menu da bandeja, e restaurar grupos escondidos.
   Veja "Atalho de restaurar grupos" abaixo para o porquê do segundo existir.
 
+### Configurações e diálogos (`src/SmartDockGroups.App/Settings/`)
+
+- **`TextPromptWindow`** e **`PromptPositioning`** — diálogo para entrada de texto
+  (renomear grupo, renomear atalho/subpasta, novo grupo, nova pasta). O diálogo usa
+  `WindowStartupLocation="Manual"` e é centralizado pelo `PromptPositioning.PositionWindowAtCursor`
+  no monitor onde ocorreu o clique do usuário (`Screen.FromPoint(Control.MousePosition)`).
+  Calcula a posição centralizada na área de trabalho útil desse monitor (`WorkingArea`),
+  converte pixels físicos para DIPs do WPF com base no DPI do sistema e do monitor
+  (`GetDpiForMonitor`/`GetDpiForSystem`), restringe as coordenadas para impedir que a
+  janela saia dos limites da tela, e ajusta a posição do HWND diretamente via Win32
+  `SetWindowPos` (`SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE`) além de atualizar
+  `Left` e `Top`. Evita que o diálogo caia no monitor primário em sistemas multi-monitor.
+
 ### Tema (`src/SmartDockGroups.App/Theming/`)
 
 Paleta e métricas de controle portadas do projeto irmão **IGCParam**
@@ -449,8 +462,10 @@ físicos):
   Um arrasto manual durante o resgate vira a nova casa normalmente.
 - **Win+Shift+←/→** move o grupo em foco para o monitor vizinho, dando a
   volta nas pontas — a mesma convenção do Windows.
-- Só testado com simulação (um monitor físico disponível nesta máquina); veja
-  a seção de testes.
+- **Posicionamento de diálogos no monitor do clique**: diálogos interativos (`TextPromptWindow`)
+  abrem centralizados no monitor do cursor do usuário no momento da invocação,
+  respeitando a área útil e o DPI daquele monitor específico (`PromptPositioning`),
+  comprovado com medições e capturas em sistema multi-monitor real.
 
 ## Ícone e identidade visual
 
@@ -481,17 +496,19 @@ Para lançar uma versão nova: editar o `VERSION`, recompilar, commitar.
 
 ## O que ainda está pendente ou não verificado
 
-- **Multi-monitor real**: toda a lógica foi validada por simulação
-  (`MonitorPlacement`) e por um teste manual forçando coordenadas fora da
-  tela; nunca foi visto um grupo atravessar para um segundo monitor físico
-  nesta máquina (só há um disponível).
+- **Multi-monitor real**: a lógica de resgate de grupos (`MonitorPlacement`)
+  foi validada por simulação e testes unitários. O posicionamento de diálogos
+  no monitor sob o cursor (`PromptPositioning` / `TextPromptWindow`) foi comprovado
+  em sistema multi-monitor real nesta máquina com medição dos retângulos físicos
+  e capturas de tela em ambos os monitores ativos.
 - **Importar configurações só entra em vigor ao clicar em Salvar** na tela de
   Configurações — para um restore de backup isso é fácil de esquecer.
 
 ## Testes
 
 O projeto conta com uma suíte automatizada de testes xUnit em `tests/SmartDockGroups.Tests`
-(40 asserções cobrindo geometria de monitor `MonitorPlacement`, integridade e contrato
+(47 asserções cobrindo geometria de monitor `MonitorPlacement`, posicionamento de janelas por monitor
+`PromptPositioning` com DPI heterogêneo e contenção na área de trabalho, integridade e contrato
 de serialização de `config.json`, extração e corte de transparência de ícones no
 `IconCacheService` e renderização do ladrilho `AppFolderTile`).
 

@@ -1,0 +1,26 @@
+MultiMonitor Verification Report - SmartDockGroups Defect B
+Timestamp: 2026-09-27 01:37:09
+Detected Screens Count: 2
+
+--- Monitor 0 (\\.\DISPLAY4) ---
+Primary: True
+Physical Bounds: Left=0, Top=0, Width=3840, Height=2160
+Physical WorkingArea: Left=0, Top=72, Width=3840, Height=2088
+Physical Cursor Placed: [1920, 1080] (Verified MousePosition: [0, 0])
+PromptPositioning.LastLog: Screen=\\.\DISPLAY4, Cursor={X=1920,Y=1080}, Phys=[1620,971], Scale=[sys:1,5,mon:1,5], WinLeftTop=[1080,647,3333333333334], HWND=1903796
+HWND: 1903796, WPF Window DIPs: Left=1080, Top=647,3333333333334, Width=400, Height=192,63
+Measured Win32 Physical Rect: [1620, 971, 2220, 1260] (Width=600, Height=289)
+Assertion PASSED: Window is 100% contained within Monitor 0 (\\.\DISPLAY4)
+Captured Screenshot: C:\desenv\utils\SmartDockGroups\docs\execucoes\B-monitor1.png
+
+--- Monitor 1 (\\.\DISPLAY1) ---
+Primary: False
+Physical Bounds: Left=5760, Top=0, Width=2880, Height=1620
+Physical WorkingArea: Left=5760, Top=72, Width=2880, Height=1548
+Physical Cursor Placed: [7200, 810] (Verified MousePosition: [0, 0])
+PromptPositioning.LastLog: Screen=\\.\DISPLAY1, Cursor={X=7200,Y=810}, Phys=[6900,701], Scale=[sys:1,5,mon:1,5], WinLeftTop=[4600,467,3333333333333], HWND=2689938
+HWND: 2689938, WPF Window DIPs: Left=4600, Top=467,3333333333333, Width=400, Height=192,63
+Measured Win32 Physical Rect: [6900, 701, 7500, 990] (Width=600, Height=289)
+Assertion PASSED: Window is 100% contained within Monitor 1 (\\.\DISPLAY1)
+Captured Screenshot: C:\desenv\utils\SmartDockGroups\docs\execucoes\B-monitor2.png
+

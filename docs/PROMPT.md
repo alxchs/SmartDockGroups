@@ -602,3 +602,16 @@ Um grupo no modo "pasta de app" contendo atalho com URI de protocolo (como `mste
 
 - **Prova**: testes unitários xUnit em `tests/SmartDockGroups.Tests/IconCacheServiceTests.cs` (5 testes novos) e captura visual do mosaico em `tests/SmartDockGroups.Tests/IconVisualCaptureTests.cs` gerando `docs/execucoes/A-depois.png` em comparação a `docs/execucoes/A-antes.png`.
 
+## 25. Diálogo de renomear grupo/item centralizado no monitor do clique
+
+Ao criar ou renomear um grupo, atalho ou subpasta (`DesktopGroupWindow.OnRenameClick`, `RenameItem`, `RenameFolder`, `GroupOverlayWindow.RenameEntry`, `App.CreateNewGroup`), a caixa de texto (`TextPromptWindow.xaml(.cs)`) sempre aparecia no monitor primário, mesmo quando o usuário clicava em um grupo localizado em um monitor secundário.
+
+**Causa raiz:** O `TextPromptWindow.xaml` definia `WindowStartupLocation="CenterOwner"`, mas todas as chamadas de instanciação no app criavam o diálogo sem definir a propriedade `Owner` (`Owner` nulo). No WPF, quando `WindowStartupLocation` é `CenterOwner` e `Owner` é `null`, o runtime cai no fallback padrão de centralizar a janela na tela primária (`SystemParameters.WorkArea`), ignorando onde estava o cursor do usuário e em qual monitor a janela de grupo invocadora residia. Em ambientes multi-monitor com escalas de DPI heterogêneas, isso forçava o diálogo a surgir distante do ponto de foco do usuário.
+
+**Correção:**
+1. `PromptPositioning.cs`: módulo de cálculo e posicionamento que obtém o monitor sob o cursor (`Screen.FromPoint(Control.MousePosition)`), calcula o centro exato da área de trabalho útil desse monitor (`WorkingArea`), restringe a geometria aos limites visíveis da tela, converte pixels físicos para unidades independentes de dispositivo (DIPs) com base no DPI do sistema e do monitor (`GetDpiForMonitor` e `GetDpiForSystem`), define `window.Left` e `window.Top` em DIPs e ajusta o HWND diretamente via Win32 `SetWindowPos` (`SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE`).
+2. `TextPromptWindow.xaml` e `TextPromptWindow.xaml.cs`: alteração de `WindowStartupLocation` para `Manual`, posicionamento automático centralizado no monitor do cursor em `OnSourceInitialized` e reposicionamento em `Loaded` com foco imediato e elevação temporária de z-order para evitar que fique oculta. Aceita parâmetro opcional de substituição de cursor para testes automatizados.
+3. Robustez em `ModernWindow` e `LocalizationService`: proteção contra estilos nulos ao ser instanciado fora do ciclo de vida padrão do `App.xaml` e suporte a recursos empacotados (`pack://application:,,,/`).
+
+- **Prova**: 6 novos testes em `tests/SmartDockGroups.Tests/PromptPositioningTests.cs` (totalizando 47 testes xUnit). O teste `VerifyDialogOpensOnEveryRealScreen` executa em máquina real sobre todas as telas disponíveis (`Screen.AllScreens`), dispara a janela de diálogo em cada tela, mede os retângulos de janela obtidos e valida a contenção estrita dentro da área útil daquele monitor. Evidências salvas em `docs/execucoes/B-retangulos.txt`, `docs/execucoes/B-monitor1.png` e `docs/execucoes/B-monitor2.png`.
+
