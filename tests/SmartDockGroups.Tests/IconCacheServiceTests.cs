@@ -119,4 +119,99 @@ public sealed class IconCacheServiceTests : IDisposable
         Assert.True(icon.Width > 0);
         Assert.True(icon.Height > 0);
     }
+
+    [Fact]
+    public void TrimTransparentMargins_applied_twice_on_real_png_does_not_throw_or_zero_out()
+    {
+        var pngPath = @"C:\desenv\utils\SmartDockGroups\tests\runs\iconcache_original_backup\2223BC1DEA052500010F046078B4C8FB8EEFDA648055278E1948F0D6F7E7E6B1.png";
+        if (!File.Exists(pngPath)) return;
+
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+        image.UriSource = new Uri(pngPath);
+        image.EndInit();
+        image.Freeze();
+
+        var firstTrim = IconCacheService.TrimTransparentMargins(image);
+        Assert.NotNull(firstTrim);
+        Assert.True(firstTrim.PixelWidth > 0);
+        Assert.True(firstTrim.PixelHeight > 0);
+
+        var secondTrim = IconCacheService.TrimTransparentMargins(firstTrim);
+        Assert.NotNull(secondTrim);
+        Assert.True(secondTrim.PixelWidth > 0);
+        Assert.True(secondTrim.PixelHeight > 0);
+        Assert.Equal(firstTrim.PixelWidth, secondTrim.PixelWidth);
+        Assert.Equal(firstTrim.PixelHeight, secondTrim.PixelHeight);
+
+        // Test BitmapSourceToIcon via GetIcon logic
+        using var ms = new MemoryStream();
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(secondTrim));
+        encoder.Save(ms);
+        ms.Position = 0;
+        using var bmp = new System.Drawing.Bitmap(ms);
+        var hIcon = bmp.GetHicon();
+        Assert.NotEqual(IntPtr.Zero, hIcon);
+        using var icon = (System.Drawing.Icon)System.Drawing.Icon.FromHandle(hIcon).Clone();
+        Assert.NotNull(icon);
+        Assert.True(icon.Width > 0);
+        Assert.True(icon.Height > 0);
+    }
+
+    [Fact]
+    public void BuildCacheKey_uses_v2_schema_and_differs_from_legacy_v1()
+    {
+        using var cache = new IconCacheService(_directory);
+        const string uri = "msteams://teams.microsoft.com/l/chat/0/0?users=test@example.com";
+
+        // Legacy key without v2: prefix
+        var legacyIdentity = $"{uri.ToLowerInvariant()}|0";
+        var legacyHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(legacyIdentity)));
+
+        // New key uses v2: prefix
+        var v2Identity = $"v2:{uri.ToLowerInvariant()}|0";
+        var v2Hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(v2Identity)));
+
+        Assert.NotEqual(legacyHash, v2Hash);
+
+        // Verify that IconCacheService creates files with the new v2 hash
+        cache.GetImageSource(uri);
+        var expectedCacheFile = Path.Combine(_directory, v2Hash + ".png");
+        Assert.True(File.Exists(expectedCacheFile));
+    }
+
+    [Fact]
+    public void GetImageSource_resolves_renamed_desktop_url_shortcut()
+    {
+        var tempFolder = Path.Combine(Path.GetTempPath(), "SmartDockGroupsTests_Rename_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempFolder);
+        try
+        {
+            var renamedFile = Path.Combine(tempFolder, "Alexandre Chagas Sousa.url");
+            File.WriteAllText(renamedFile, "[InternetShortcut]\nURL=msteams://teams.microsoft.com/l/chat/0/0?users=alexandre.sousa@iob.com.br\n");
+
+            // Look up via original target name Alexandre.url (which does not exist)
+            var originalTarget = Path.Combine(tempFolder, "Alexandre.url");
+            Assert.False(File.Exists(originalTarget));
+
+            using var cache = new IconCacheService(_directory);
+            var image = cache.GetImageSource(originalTarget);
+            Assert.NotNull(image);
+            Assert.True(image.Width > 0);
+
+            using var icon = cache.GetIcon(originalTarget);
+            Assert.NotNull(icon);
+            Assert.True(icon.Width > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(tempFolder))
+            {
+                try { Directory.Delete(tempFolder, recursive: true); } catch { }
+            }
+        }
+    }
 }

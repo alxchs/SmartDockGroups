@@ -102,7 +102,7 @@ internal static class ShellCommands
     {
         // Always the launch target: an icon override only changes what is drawn.
         var target = item.Target;
-        if (string.IsNullOrWhiteSpace(target))
+        if (string.IsNullOrWhiteSpace(target) || target.Contains("://"))
         {
             return null;
         }
@@ -110,6 +110,29 @@ internal static class ShellCommands
         if (File.Exists(target) || Directory.Exists(target))
         {
             return Path.GetFullPath(target);
+        }
+
+        if (Path.IsPathRooted(target))
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(target);
+                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                {
+                    var name = Path.GetFileNameWithoutExtension(target);
+                    var ext = Path.GetExtension(target);
+                    var matches = Directory.GetFiles(dir, $"{name}*{ext}");
+                    if (matches.Length > 0)
+                    {
+                        return matches[0];
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
         }
 
         // Bare executable names such as "notepad.exe" still resolve through PATH.

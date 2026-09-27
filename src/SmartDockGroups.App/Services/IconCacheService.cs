@@ -49,17 +49,19 @@ internal sealed class IconCacheService : IDisposable
 
         var resolvedPath = ResolveFullPath(targetPath);
         DrawingIcon? icon = null;
-        if (resolvedPath is not null)
+        if (resolvedPath is not null && !resolvedPath.EndsWith(".url", StringComparison.OrdinalIgnoreCase))
         {
             try
             {
                 icon = DrawingIcon.ExtractAssociatedIcon(resolvedPath);
             }
-            catch (IOException)
+            catch (IOException ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[IconCache] ExtractAssociatedIcon IO error for {resolvedPath}: {ex.Message}");
             }
-            catch (ArgumentException)
+            catch (ArgumentException ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[IconCache] ExtractAssociatedIcon argument error for {resolvedPath}: {ex.Message}");
             }
         }
 
@@ -257,8 +259,9 @@ internal sealed class IconCacheService : IDisposable
                 return sb.ToString();
             }
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] QueryAssociation failed for {assoc} ({assocStr}): {ex.Message}");
         }
 
         return null;
@@ -292,8 +295,9 @@ internal sealed class IconCacheService : IDisposable
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] ExtractShellItemImage failed for {target}: {ex.Message}");
         }
 
         return null;
@@ -311,11 +315,13 @@ internal sealed class IconCacheService : IDisposable
                 }
             }
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] ReadUrlFromShortcut IO error for {filePath}: {ex.Message}");
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] ReadUrlFromShortcut auth error for {filePath}: {ex.Message}");
         }
 
         return null;
@@ -366,9 +372,23 @@ internal sealed class IconCacheService : IDisposable
             return source;
         }
 
-        var cropped = new CroppedBitmap(source, new Int32Rect(minX, minY, boundW, boundH));
-        cropped.Freeze();
-        return cropped;
+        // Defensive guard: ensure bounds are within valid source dimensions
+        if (minX < 0 || minY < 0 || boundW <= 0 || boundH <= 0 || minX + boundW > width || minY + boundH > height)
+        {
+            return source;
+        }
+
+        try
+        {
+            var cropped = new CroppedBitmap(source, new Int32Rect(minX, minY, boundW, boundH));
+            cropped.Freeze();
+            return cropped;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] CroppedBitmap failed: {ex.Message}");
+            return source;
+        }
     }
 
     private static DrawingIcon? BitmapSourceToIcon(BitmapSource bs)
@@ -391,8 +411,9 @@ internal sealed class IconCacheService : IDisposable
                 DestroyIcon(hIcon);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] BitmapSourceToIcon failed: {ex.Message}");
             return null;
         }
     }
@@ -460,12 +481,14 @@ internal sealed class IconCacheService : IDisposable
             source.Freeze();
             return source;
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] ExtractFallbackIcon IO error for {path}: {ex.Message}");
             return null;
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] ExtractFallbackIcon argument error for {path}: {ex.Message}");
             return null;
         }
     }
@@ -488,12 +511,14 @@ internal sealed class IconCacheService : IDisposable
             image.Freeze();
             return image;
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] LoadPngFromDisk IO error for {cacheFilePath}: {ex.Message}");
             return null;
         }
-        catch (NotSupportedException)
+        catch (NotSupportedException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] LoadPngFromDisk not supported error for {cacheFilePath}: {ex.Message}");
             return null;
         }
     }
@@ -518,8 +543,20 @@ internal sealed class IconCacheService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Cache schema version. Incremented whenever the extraction, cropping, or resolution
+    /// algorithm changes so that stale cached images (especially for non-file URI targets
+    /// whose last-write timestamp is always 0) are automatically invalidated and re-extracted.
+    /// </summary>
+    private const string CacheSchemaVersion = "v2";
+
     private static string? ResolveFullPath(string targetPath)
     {
+        if (string.IsNullOrWhiteSpace(targetPath) || targetPath.Contains("://"))
+        {
+            return null;
+        }
+
         if (File.Exists(targetPath) || Directory.Exists(targetPath))
         {
             return Path.GetFullPath(targetPath);
@@ -527,6 +564,25 @@ internal sealed class IconCacheService : IDisposable
 
         if (Path.IsPathRooted(targetPath))
         {
+            try
+            {
+                var dir = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                {
+                    var name = Path.GetFileNameWithoutExtension(targetPath);
+                    var ext = Path.GetExtension(targetPath);
+                    var matches = Directory.GetFiles(dir, $"{name}*{ext}");
+                    if (matches.Length > 0)
+                    {
+                        return matches[0];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[IconCache] ResolveFullPath directory search failed for {targetPath}: {ex.Message}");
+            }
+
             return null;
         }
 
@@ -556,8 +612,9 @@ internal sealed class IconCacheService : IDisposable
 
     private static string BuildCacheKey(string targetPath)
     {
-        var lastWriteTicks = File.Exists(targetPath) ? File.GetLastWriteTimeUtc(targetPath).Ticks : 0L;
-        var identity = $"{targetPath.ToLowerInvariant()}|{lastWriteTicks}";
+        var resolved = ResolveFullPath(targetPath) ?? targetPath;
+        var lastWriteTicks = File.Exists(resolved) ? File.GetLastWriteTimeUtc(resolved).Ticks : 0L;
+        var identity = $"{CacheSchemaVersion}:{targetPath.ToLowerInvariant()}|{lastWriteTicks}";
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(identity));
         return Convert.ToHexString(hash);
     }

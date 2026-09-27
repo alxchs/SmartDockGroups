@@ -513,7 +513,7 @@ internal static class DefectBVerifier
         Thread.Sleep(600);
     }
 
-    public static int CaptureRealAppTeams(string exePath, string outputDir)
+    public static int CaptureRealAppTeams(string exePath, string outputDir, string prefix = "")
     {
         Console.WriteLine("=== CAPTURANDO APP REAL COM GRUPO DO TEAMS ===");
         var configPath = Path.Combine(
@@ -538,11 +538,14 @@ internal static class DefectBVerifier
 
         try
         {
+            var panelFile = string.IsNullOrEmpty(prefix) ? "A-app-real-painel.png" : $"{prefix}-painel.png";
+            var mosaicoFile = string.IsNullOrEmpty(prefix) ? "A-app-real-mosaico.png" : $"{prefix}-mosaico.png";
+
             // 1. Modo Painel
-            CaptureTeamsMode(exePath, configPath, outputDir, "Panel", "A-app-real-painel.png");
+            CaptureTeamsMode(exePath, configPath, outputDir, "Panel", panelFile);
 
             // 2. Modo App Folder (Mosaico)
-            CaptureTeamsMode(exePath, configPath, outputDir, "AppFolder", "A-app-real-mosaico.png");
+            CaptureTeamsMode(exePath, configPath, outputDir, "AppFolder", mosaicoFile);
 
             return 0;
         }
@@ -586,12 +589,22 @@ internal static class DefectBVerifier
                         },
                         new JsonObject
                         {
+                            ["Name"] = "Alexandre",
+                            ["Type"] = "File",
+                            ["Target"] = @"C:\Users\alxch\OneDrive\Área de Trabalho\Alexandre.url",
+                            ["ExecutionMode"] = "Normal",
+                            ["IsDesktopPinned"] = true,
+                            ["DesktopIconX"] = 120.0,
+                            ["DesktopIconY"] = 20.0
+                        },
+                        new JsonObject
+                        {
                             ["Name"] = "Bloco de Notas",
                             ["Type"] = "Application",
                             ["Target"] = @"C:\Windows\System32\notepad.exe",
                             ["ExecutionMode"] = "Normal",
                             ["IsDesktopPinned"] = true,
-                            ["DesktopIconX"] = 120.0,
+                            ["DesktopIconX"] = 220.0,
                             ["DesktopIconY"] = 20.0
                         },
                         new JsonObject
@@ -601,7 +614,7 @@ internal static class DefectBVerifier
                             ["Target"] = @"C:\Windows\System32\calc.exe",
                             ["ExecutionMode"] = "Normal",
                             ["IsDesktopPinned"] = true,
-                            ["DesktopIconX"] = 220.0,
+                            ["DesktopIconX"] = 320.0,
                             ["DesktopIconY"] = 20.0
                         }
                     },

@@ -624,4 +624,34 @@ A auditoria da entrega anterior apontou três lacunas de verificação rigorosa:
    - *Diagnóstico e Prova com o App no Modo Original*: a aplicação mantém estritamente seu modo de DPI original (`System DPI Aware`, sem manifesto), preservando o comportamento de escala visual padrão do WPF no Windows. Apenas a ferramenta de teste (`GroupProbe`) conta com `app.manifest` (`PerMonitorV2`) para medição das coordenadas físicas reais dos monitores e implementa bridge automático para a desktop interativa `WinSta0\Default`. A classe `DefectBVerifier` em C# subiu o `SmartDockGroups.App.exe` real (com backup do `config.json` conferido por hash SHA-256 antes e depois). Para cada monitor (150% e 100%), o cursor real foi posicionado e validado por `GetCursorPos`, o menu de contexto do grupo foi acionado para clicar em "Renomear...", o retângulo do diálogo foi medido por `GetWindowRect` e provado 100% contido na área útil daquele monitor com dimensões coerentes ao DPI. Capturas recortadas das janelas (sem área de trabalho do usuário, preservando total privacidade) foram salvas em `docs/execucoes/B-fluxo-real-monitor1.png` e `B-fluxo-real-monitor2.png` (< 300 KB). O caminho de "Novo grupo" (`App.CreateNewGroup`) também foi medido e comprovado contido.
 3. **App aberto de verdade (Defeito A)**: a aplicação real (`SmartDockGroups.App.exe` Release) foi executada com o atalho do Microsoft Teams (`msteams://teams.microsoft.com/l/chat/0/0?users=alexandre.sousa@iob.com.br`) nos dois modos visuais, comprovando visualmente em `docs/execucoes/A-app-real-painel.png` (painel íntegro) e `docs/execucoes/A-app-real-mosaico.png` (mosaico nítido, preenchendo a célula proporcionalmente aos demais ícones, sem margem transparente excessiva e com selo azul).
 
+## 27. Ícone do Teams e atalhos .url renomeados no instalador publicado (OS 04)
+
+Após a publicação da versão 1.1.1.1, reportou-se que o atalho do Microsoft Teams sumiu completamente tanto no modo Painel quanto no modo App Folder no executável instalado de verdade (`C:\Users\alxch\AppData\Local\Programs\SmartDockGroups\SmartDockGroups.App.exe`, self-contained single-file win-x64).
+
+**Causa raiz com evidência:**
+1. *Lacuna de verificação*: Todas as rodadas anteriores testaram apenas o build framework-dependent em `bin/Release/net10.0-windows/SmartDockGroups.App.exe`, sem validar o artefato publicado self-contained single-file gerado pelo script do instalador.
+2. *Atalho com nome divergente na Área de Trabalho*: Na configuração real da máquina do usuário (`config.json`), o item apontava para `C:\Users\alxch\OneDrive\Área de Trabalho\Alexandre.url`. No sistema de arquivos, o atalho havia sido criado/renomeado como `Alexandre Chagas Sousa.url`. A função `ResolveFullPath` retornava nulo por não achar o arquivo com o nome exato, falhando a extração do ícone e a execução do atalho. O arquivo de cache `2223BC1D...png` existente correspondia à URI pura `msteams://...`, enquanto a chave do atalho `Alexandre.url` gerava hash diferente (`9700AA29...`) e nunca encontrava o ícone.
+3. *Atalhos `.url` no painel*: O método `GetIcon` delegava arquivos `.url` para `ExtractAssociatedIcon`, que gerava um ícone genérico ou falhava silenciosamente, em vez de extrair o ícone real do alvo associado à URL.
+4. *Estagnação permanente do cache de URIs/URLs*: A chave de cache para alvos virtuais (URIs/URLs sem arquivo local ou sem data de modificação) usava `ticks = 0` fixo sem versão de schema. Uma entrada corrompida ou gravada por versão antiga do código nunca se invalidava no cache em disco.
+5. *Tratamento de exceções silencioso*: Blocos `catch {}` vazios em `IconCacheService` silenciavam erros sem fornecer rastreabilidade diagnóstica.
+
+**Correção:**
+1. `IconCacheService.ResolveFullPath` e `ShellCommands.TryResolveTarget`: Adição de resolução com fallback para atalhos de Área de Trabalho renomeados (busca por arquivos na mesma pasta que iniciam com o nome base e mesma extensão).
+2. `IconCacheService.GetIcon`: Atalhos `.url` agora extraem o ícone real do alvo via `GetImageSource` e o convertem em `Icon`, exibindo o ícone nítido do Teams no painel.
+3. `IconCacheService.BuildCacheKey`: Inclusão do prefixo versionado `v2:` para alvos de URI/URL, permitindo renovação automática e garantida do cache em disco.
+4. `LaunchExecutor`: Utilização de `ShellCommands.TryResolveTarget` para garantir que o atalho renomeado seja executado com sucesso ao ser clicado pelo usuário.
+5. `IconCacheService.TrimTransparentMargins`: Proteção contra bounds inválidos caso aplicado repetidamente.
+6. Remoção de blocos `catch {}` vazios em todo o serviço, substituídos por mensagens rastreáveis de depuração (`System.Diagnostics.Debug.WriteLine`).
+
+**Comprovação rigorosa:**
+- **Testes automatizados**: 50 testes unitários xUnit passando em `tests/SmartDockGroups.Tests` (incluindo testes de duplo recorte, versionamento v2 da chave de cache e resolução de atalhos `.url` renomeados).
+- **Execução contra o binário publicado real**: Publicado via `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true` (`src/SmartDockGroups.App/bin/Release/net10.0-windows/win-x64/publish/SmartDockGroups.App.exe`).
+- **Dois cenários de teste validados com capturas recortadas (< 300 KB)**:
+  - *Upgrade* (com o `IconCache` real da máquina): `docs/execucoes/upgrade-painel.png` (27 KB) e `docs/execucoes/upgrade-mosaico.png` (22 KB).
+  - *Instalação limpa* (com `IconCache` vazio): `docs/execucoes/limpa-painel.png` (27 KB) e `docs/execucoes/limpa-mosaico.png` (22 KB).
+  - Ambos comprovaram visualmente a exibição correta e nítida do ícone do Teams tanto no modo Painel quanto na App Folder.
+- **Sonda de caracterização**: Validação de estabilidade com oráculo determinístico (`IDENTICO` entre duas execuções consecutivas do mesmo build) e comparação com a baseline `tests/baseline/report-master.json` resultando em 316 de 316 campos idênticos.
+- **Integridade de dados**: Backup e restauração conferidos por SHA-256 do arquivo `%AppData%\SmartDockGroups\config.json` (`7046EFF0CF00ED7BDCA814AE5D6C982D6128B3B65286F087085A5B4D08D2C9DF`) e dos 68 arquivos da pasta `IconCache` conferidos por manifesto SHA-256 com zero divergências.
+
+
 

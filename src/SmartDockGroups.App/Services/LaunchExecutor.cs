@@ -23,9 +23,18 @@ internal static class LaunchExecutor
 
     private static ProcessStartInfo BuildStartInfo(LaunchItem item)
     {
+        var target = item.Target;
+        if (item.Type != LaunchItemType.Command && !target.Contains("://") && !File.Exists(target) && !Directory.Exists(target))
+        {
+            if (ShellCommands.TryResolveTarget(item, out var resolved))
+            {
+                target = resolved;
+            }
+        }
+
         var startInfo = item.Type == LaunchItemType.Command
             ? BuildCommandStartInfo(item)
-            : new ProcessStartInfo(item.Target) { Arguments = item.Arguments ?? string.Empty };
+            : new ProcessStartInfo(target) { Arguments = item.Arguments ?? string.Empty };
 
         startInfo.UseShellExecute = true;
 

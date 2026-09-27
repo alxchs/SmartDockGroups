@@ -59,3 +59,15 @@ python tests/compare_reports.py tests/baseline/report-master.json <pasta>/report
    que o app faz, não a aparência do código que deveria fazer.
 6. **Antes de declarar uma fase concluída, diga o que você mediu e com que comando.** Uma
    afirmação técnica sem o comando que a sustenta é tratada aqui como não verificada.
+7. **Mudança em extração/cache de ícone deve ser testada contra o publish self-contained.**
+   Use `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true`
+   (ou `mkfile p src/SmartDockGroups.App/SmartDockGroups.App.csproj`), testando o executável
+   em `bin/Release/net10.0-windows/win-x64/publish/SmartDockGroups.App.exe`, e NÃO apenas o build
+   framework-dependent comum.
+   Lição do incidente da OS 04 (v1.1.1.1): o build comum rodava em testes locais mas o publicado em produção
+   apresentava regressão severa porque atalhos `.url` na Área de Trabalho com nomes renomeados (ex.:
+   `Alexandre Chagas Sousa.url` vs `Alexandre.url` no `config.json`) falhavam na resolução de caminho,
+   o cache para URIs/URLs nunca se invalidava sozinho (ticks fixo em 0 sem versionamento de schema) e blocos
+   `catch {}` silenciosos ocultavam diagnósticos. Todo teste de ícones deve cobrir obrigatoriamente
+   os dois cenários: "Upgrade" (com cópia do `IconCache` real do sistema) e "Instalação limpa" (com `IconCache` vazio).
+

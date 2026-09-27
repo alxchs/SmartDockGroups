@@ -49,7 +49,8 @@ internal static class Program
                       ?? @"C:\desenv\utils\SmartDockGroups\src\SmartDockGroups.App\bin\Release\net10.0-windows\SmartDockGroups.App.exe";
             var outDir = args.SkipWhile(a => a != "--out").Skip(1).FirstOrDefault()
                          ?? @"C:\desenv\utils\SmartDockGroups\docs\execucoes";
-            return DefectBVerifier.CaptureRealAppTeams(Path.GetFullPath(exe), Path.GetFullPath(outDir));
+            var prefix = args.SkipWhile(a => a != "--prefix").Skip(1).FirstOrDefault() ?? "";
+            return DefectBVerifier.CaptureRealAppTeams(Path.GetFullPath(exe), Path.GetFullPath(outDir), prefix);
         }
 
         var options = ProbeOptions.Parse(args);
