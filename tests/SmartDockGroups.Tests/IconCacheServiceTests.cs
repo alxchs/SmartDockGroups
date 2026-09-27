@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using SmartDockGroups.App.Services;
+using SmartDockGroups.Core.Models;
 using Xunit;
 
 namespace SmartDockGroups.Tests;
@@ -197,6 +198,15 @@ public sealed class IconCacheServiceTests : IDisposable
             var originalTarget = Path.Combine(tempFolder, "Alexandre.url");
             Assert.False(File.Exists(originalTarget));
 
+            // Confirm ResolveFullPath and ShellCommands resolve unequivocally to the single matching file
+            var resolvedPath = IconCacheService.ResolveFullPath(originalTarget);
+            Assert.Equal(renamedFile, resolvedPath);
+
+            var item = new LaunchItem { Name = "Alexandre", Target = originalTarget, Type = LaunchItemType.File };
+            Assert.Equal(renamedFile, ShellCommands.ResolveTarget(item));
+            Assert.True(ShellCommands.TryResolveTarget(item, out var shellResolved));
+            Assert.Equal(renamedFile, shellResolved);
+
             using var cache = new IconCacheService(_directory);
             var image = cache.GetImageSource(originalTarget);
             Assert.NotNull(image);
@@ -205,6 +215,52 @@ public sealed class IconCacheServiceTests : IDisposable
             using var icon = cache.GetIcon(originalTarget);
             Assert.NotNull(icon);
             Assert.True(icon.Width > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(tempFolder))
+            {
+                try { Directory.Delete(tempFolder, recursive: true); } catch { }
+            }
+        }
+    }
+
+    [Fact]
+    public void ResolveFullPath_and_TryResolveTarget_return_null_when_multiple_candidates_match_prefix_ambiguity()
+    {
+        var tempFolder = Path.Combine(Path.GetTempPath(), "SmartDockGroupsTests_Ambiguity_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempFolder);
+        try
+        {
+            // Create two candidates: Alvo A.url and Alvo B.url (neither named Alvo.url)
+            var fileA = Path.Combine(tempFolder, "Alvo A.url");
+            var fileB = Path.Combine(tempFolder, "Alvo B.url");
+            File.WriteAllText(fileA, "[InternetShortcut]\nURL=https://example.com/a\n");
+            File.WriteAllText(fileB, "[InternetShortcut]\nURL=https://example.com/b\n");
+
+            var queryTarget = Path.Combine(tempFolder, "Alvo.url");
+            Assert.False(File.Exists(queryTarget));
+
+            // 1. IconCacheService.ResolveFullPath must return null (ambiguity treated as unresolved)
+            var resolvedIconPath = IconCacheService.ResolveFullPath(queryTarget);
+            Assert.Null(resolvedIconPath);
+
+            // 2. IconCacheService GetImageSource and GetIcon must also return null without picking arbitrarily
+            using var cache = new IconCacheService(_directory);
+            var image = cache.GetImageSource(queryTarget);
+            Assert.Null(image);
+
+            using var icon = cache.GetIcon(queryTarget);
+            Assert.Null(icon);
+
+            // 3. ShellCommands.ResolveTarget and TryResolveTarget must return null/false
+            var item = new LaunchItem { Name = "Alvo", Target = queryTarget, Type = LaunchItemType.File };
+            var resolvedShellTarget = ShellCommands.ResolveTarget(item);
+            Assert.Null(resolvedShellTarget);
+
+            var canResolve = ShellCommands.TryResolveTarget(item, out var resolvedPath);
+            Assert.False(canResolve);
+            Assert.Empty(resolvedPath);
         }
         finally
         {

@@ -636,7 +636,7 @@ Após a publicação da versão 1.1.1.1, reportou-se que o atalho do Microsoft T
 5. *Tratamento de exceções silencioso*: Blocos `catch {}` vazios em `IconCacheService` silenciavam erros sem fornecer rastreabilidade diagnóstica.
 
 **Correção:**
-1. `IconCacheService.ResolveFullPath` e `ShellCommands.TryResolveTarget`: Adição de resolução com fallback para atalhos de Área de Trabalho renomeados (busca por arquivos na mesma pasta que iniciam com o nome base e mesma extensão).
+1. `IconCacheService.ResolveFullPath` e `ShellCommands.TryResolveTarget`: Adição de resolução com fallback para atalhos de Área de Trabalho renomeados (busca por arquivos na mesma pasta que iniciam com o nome base e mesma extensão, resolvendo apenas quando há exatamente um candidato inequívoco; múltiplos candidatos são tratados como não resolvidos para evitar acionar alvo incorreto).
 2. `IconCacheService.GetIcon`: Atalhos `.url` agora extraem o ícone real do alvo via `GetImageSource` e o convertem em `Icon`, exibindo o ícone nítido do Teams no painel.
 3. `IconCacheService.BuildCacheKey`: Inclusão do prefixo versionado `v2:` para alvos de URI/URL, permitindo renovação automática e garantida do cache em disco.
 4. `LaunchExecutor`: Utilização de `ShellCommands.TryResolveTarget` para garantir que o atalho renomeado seja executado com sucesso ao ser clicado pelo usuário.
@@ -644,7 +644,7 @@ Após a publicação da versão 1.1.1.1, reportou-se que o atalho do Microsoft T
 6. Remoção de blocos `catch {}` vazios em todo o serviço, substituídos por mensagens rastreáveis de depuração (`System.Diagnostics.Debug.WriteLine`).
 
 **Comprovação rigorosa:**
-- **Testes automatizados**: 50 testes unitários xUnit passando em `tests/SmartDockGroups.Tests` (incluindo testes de duplo recorte, versionamento v2 da chave de cache e resolução de atalhos `.url` renomeados).
+- **Testes automatizados**: 51 testes unitários xUnit passando em `tests/SmartDockGroups.Tests` (incluindo testes de duplo recorte, versionamento v2 da chave de cache, resolução unívoca de atalhos `.url` renomeados e descarte sob ambiguidade).
 - **Execução contra o binário publicado real**: Publicado via `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true` (`src/SmartDockGroups.App/bin/Release/net10.0-windows/win-x64/publish/SmartDockGroups.App.exe`).
 - **Dois cenários de teste validados com capturas recortadas (< 300 KB)**:
   - *Upgrade* (com o `IconCache` real da máquina): `docs/execucoes/upgrade-painel.png` (27 KB) e `docs/execucoes/upgrade-mosaico.png` (22 KB).

@@ -32,7 +32,7 @@ src/
 tools/
   IconForge/                      gera o .ico oficial do app
 tests/
-  SmartDockGroups.Tests/          50 asserções xUnit (geometria de monitor, posicionamento multimonitor do diálogo de renomear, contrato do config, corte de transparência de ícones, renderização, versionamento v2 do cache, resolução de atalhos .url renomeados)
+  SmartDockGroups.Tests/          51 asserções xUnit (geometria de monitor, posicionamento multimonitor do diálogo de renomear, contrato do config, corte de transparência de ícones, renderização, versionamento v2 do cache, resolução unívoca de atalhos .url renomeados e descarte sob ambiguidade)
   GroupProbe/                     sonda que sobe o app e caracteriza os grupos
   baseline/                       referência da master b46789b, para comparar refatorações
 docs/
@@ -503,17 +503,17 @@ Para lançar uma versão nova: editar o `VERSION`, recompilar, commitar.
   o app em execução real (`SmartDockGroups.App.exe` Release em modo original sem manifesto), medição dos retângulos físicos
   feita pela ferramenta de teste `GroupProbe` (sob manifesto nativo `PerMonitorV2`), validação de coordenadas do cursor real
   (`GetCursorPos`) e capturas recortadas das janelas (`B-fluxo-real-monitor1.png` e `B-fluxo-real-monitor2.png`).
-- **Renderização real do mosaico e painel (Defeito A / OS 04)**: comprovada no executável publicado self-contained (`SmartDockGroups.App.exe` em `win-x64/publish/`) cobrindo cenários "Upgrade" (com IconCache existente) e "Instalação limpa" (com IconCache vazio), exibindo o ícone nítido do Teams tanto para URI direta (`msteams://...`) quanto para atalhos de Área de Trabalho renomeados (`Alexandre.url` resolvido para `Alexandre Chagas Sousa.url`), comprovado em `upgrade-painel.png`, `upgrade-mosaico.png`, `limpa-painel.png`, `limpa-mosaico.png`, `A-app-real-painel.png` e `A-app-real-mosaico.png`. O cache agora usa schema versionado `v2:` para URIs e URLs, evitando entradas estagnadas permanentes com ticks=0.
+- **Renderização real do mosaico e painel (Defeito A / OS 04)**: comprovada no executável publicado self-contained (`SmartDockGroups.App.exe` em `win-x64/publish/`) cobrindo cenários "Upgrade" (com IconCache existente) e "Instalação limpa" (com IconCache vazio), exibindo o ícone nítido do Teams tanto para URI direta (`msteams://...`) quanto para atalhos de Área de Trabalho renomeados (`Alexandre.url` resolvido para `Alexandre Chagas Sousa.url` quando há exatamente um candidato inequívoco; múltiplos candidatos são tratados como não resolvidos para evitar acionar ou exibir alvo incorreto), comprovado em `upgrade-painel.png`, `upgrade-mosaico.png`, `limpa-painel.png`, `limpa-mosaico.png`, `A-app-real-painel.png` e `A-app-real-mosaico.png`. O cache agora usa schema versionado `v2:` para URIs e URLs, evitando entradas estagnadas permanentes com ticks=0.
 - **Importar configurações só entra em vigor ao clicar em Salvar** na tela de
   Configurações — para um restore de backup isso é fácil de esquecer.
 
 ## Testes e Sonda de Caracterização
 
 O projeto conta com uma suíte automatizada de testes xUnit em `tests/SmartDockGroups.Tests`
-(50 asserções cobrindo geometria de monitor `MonitorPlacement`, posicionamento de janelas por monitor
+(51 asserções cobrindo geometria de monitor `MonitorPlacement`, posicionamento de janelas por monitor
 `PromptPositioning` com DPI heterogêneo e contenção na área de trabalho, integridade e contrato
 de serialização de `config.json`, extração e corte de transparência de ícones no
-`IconCacheService`, schema versionado `v2`, resolução de atalhos `.url` de área de trabalho e renderização do ladrilho `AppFolderTile`).
+`IconCacheService`, schema versionado `v2`, resolução unívoca de atalhos `.url` de área de trabalho e rejeição sob ambiguidade e renderização do ladrilho `AppFolderTile`).
 
 Além dos testes unitários, há a sonda de caracterização em C# (`tests/GroupProbe`) que sobe
 a aplicação de verdade com um fixture de teste, valida backup por hash, mede a geometria

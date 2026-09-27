@@ -98,7 +98,7 @@ internal static class ShellCommands
         ShellExecuteEx(ref info);
     }
 
-    private static string? ResolveTarget(LaunchItem item)
+    internal static string? ResolveTarget(LaunchItem item)
     {
         // Always the launch target: an icon override only changes what is drawn.
         var target = item.Target;
@@ -122,14 +122,17 @@ internal static class ShellCommands
                     var name = Path.GetFileNameWithoutExtension(target);
                     var ext = Path.GetExtension(target);
                     var matches = Directory.GetFiles(dir, $"{name}*{ext}");
-                    if (matches.Length > 0)
+                    // Só resolve por nome parecido quando há exatamente um candidato inequívoco.
+                    // Se houver múltiplos candidatos (ambiguidade), não escolhe nenhum arbitrariamente.
+                    if (matches.Length == 1)
                     {
                         return matches[0];
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[ShellCommands] ResolveTarget directory search failed for {target}: {ex.Message}");
             }
 
             return null;

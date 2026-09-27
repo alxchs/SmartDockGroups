@@ -66,7 +66,7 @@ python tests/compare_reports.py tests/baseline/report-master.json <pasta>/report
    framework-dependent comum.
    Lição do incidente da OS 04 (v1.1.1.1): o build comum rodava em testes locais mas o publicado em produção
    apresentava regressão severa porque atalhos `.url` na Área de Trabalho com nomes renomeados (ex.:
-   `Alexandre Chagas Sousa.url` vs `Alexandre.url` no `config.json`) falhavam na resolução de caminho,
+   `Alexandre Chagas Sousa.url` vs `Alexandre.url` no `config.json` resolvidos apenas quando há exatamente um candidato inequívoco; múltiplos candidatos são tratados como não resolvidos para evitar acionar ou exibir alvo incorreto) falhavam na resolução de caminho,
    o cache para URIs/URLs nunca se invalidava sozinho (ticks fixo em 0 sem versionamento de schema) e blocos
    `catch {}` silenciosos ocultavam diagnósticos. Todo teste de ícones deve cobrir obrigatoriamente
    os dois cenários: "Upgrade" (com cópia do `IconCache` real do sistema) e "Instalação limpa" (com `IconCache` vazio).

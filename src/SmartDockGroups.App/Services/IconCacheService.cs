@@ -550,7 +550,7 @@ internal sealed class IconCacheService : IDisposable
     /// </summary>
     private const string CacheSchemaVersion = "v2";
 
-    private static string? ResolveFullPath(string targetPath)
+    internal static string? ResolveFullPath(string targetPath)
     {
         if (string.IsNullOrWhiteSpace(targetPath) || targetPath.Contains("://"))
         {
@@ -572,7 +572,9 @@ internal sealed class IconCacheService : IDisposable
                     var name = Path.GetFileNameWithoutExtension(targetPath);
                     var ext = Path.GetExtension(targetPath);
                     var matches = Directory.GetFiles(dir, $"{name}*{ext}");
-                    if (matches.Length > 0)
+                    // Só resolve por nome parecido quando há exatamente um candidato inequívoco.
+                    // Se houver múltiplos candidatos (ambiguidade), não escolhe nenhum arbitrariamente.
+                    if (matches.Length == 1)
                     {
                         return matches[0];
                     }
