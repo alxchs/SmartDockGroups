@@ -61,6 +61,12 @@ Sobe o app de verdade com uma configuração fixa, espera as janelas aparecerem,
 **Para que serve:** rodar contra dois builds e comparar os relatórios. O que a refatoração
 mudou nos grupos aparece como diff; o que ela não mudou deixa o relatório idêntico.
 
+### Modos especializados de verificação
+
+A sonda também oferece rotinas automáticas de validação e captura do app real:
+- `--verify-defect-b`: executa o app real em seu modo original (System DPI Aware sem manifesto) enquanto a sonda utiliza PerMonitorV2 para medição precisa de coordenadas físicas, posiciona o cursor real em cada monitor, dispara o menu de contexto do grupo ("Renomear..."), valida a contenção do diálogo na área útil, gera capturas recortadas das janelas (`B-fluxo-real-monitorN.png`) preservando total privacidade, além de testar o caminho de "Novo grupo".
+- `--capture-teams`: sobe o app real com atalho do Teams nos modos Painel e Mosaico, gerando as capturas `A-app-real-painel.png` e `A-app-real-mosaico.png`.
+
 ### Segurança da configuração do usuário
 
 A sonda faz backup do `%AppData%\SmartDockGroups\config.json`, **confere o backup por hash** e

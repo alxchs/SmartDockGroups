@@ -498,13 +498,17 @@ Para lançar uma versão nova: editar o `VERSION`, recompilar, commitar.
 
 - **Multi-monitor real**: a lógica de resgate de grupos (`MonitorPlacement`)
   foi validada por simulação e testes unitários. O posicionamento de diálogos
-  no monitor sob o cursor (`PromptPositioning` / `TextPromptWindow`) foi comprovado
-  em sistema multi-monitor real nesta máquina com medição dos retângulos físicos
-  e capturas de tela em ambos os monitores ativos.
+  no monitor sob o cursor (`PromptPositioning` / `TextPromptWindow`) e o fluxo de
+  "Novo grupo" foram comprovados em sistema multi-monitor real nesta máquina com
+  o app em execução real (`SmartDockGroups.App.exe` Release em modo original sem manifesto), medição dos retângulos físicos
+  feita pela ferramenta de teste `GroupProbe` (sob manifesto nativo `PerMonitorV2`), validação de coordenadas do cursor real
+  (`GetCursorPos`) e capturas recortadas das janelas (`B-fluxo-real-monitor1.png` e `B-fluxo-real-monitor2.png`).
+- **Renderização real do mosaico e painel (Defeito A)**: comprovada no app real aberto
+  com atalho do Teams (`msteams://...`) em `A-app-real-painel.png` e `A-app-real-mosaico.png`.
 - **Importar configurações só entra em vigor ao clicar em Salvar** na tela de
   Configurações — para um restore de backup isso é fácil de esquecer.
 
-## Testes
+## Testes e Sonda de Caracterização
 
 O projeto conta com uma suíte automatizada de testes xUnit em `tests/SmartDockGroups.Tests`
 (47 asserções cobrindo geometria de monitor `MonitorPlacement`, posicionamento de janelas por monitor
@@ -515,7 +519,8 @@ de serialização de `config.json`, extração e corte de transparência de íco
 Além dos testes unitários, há a sonda de caracterização em C# (`tests/GroupProbe`) que sobe
 a aplicação de verdade com um fixture de teste, valida backup por hash, mede a geometria
 das janelas, gera hash SHA-256 das capturas e inspeciona a árvore de menus via UI Automation,
-permitindo comparar com a linha de base via `compare_reports.py`.
+permitindo comparar com a linha de base via `compare_reports.py`. A aplicação mantém seu modo de DPI original (System DPI Aware sem manifesto), enquanto a sonda de teste `GroupProbe` conta com manifesto nativo `app.manifest` (`PerMonitorV2`) para medição física real e bridge automático para a desktop interativa
+`WinSta0\Default`. A comparação contra a baseline `report-master.json` apresentou 316 de 316 campos idênticos.
 
 > **Nota sobre PowerShell para diagnóstico Win32:** `FindWindow("Progman",
 > $null)` em PowerShell retorna identificador vazio mesmo quando a janela

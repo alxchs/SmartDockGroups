@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows.Automation;
+using System.Windows.Forms;
 
 namespace SmartDockGroups.Probe;
 
@@ -24,7 +25,32 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        Win32.SetProcessDPIAware();
+        if (!args.Contains("--no-desktop-relaunch"))
+        {
+            var desktop = Win32.GetCurrentDesktopName();
+            if (!string.Equals(desktop, "Default", StringComparison.OrdinalIgnoreCase))
+            {
+                return Win32.RelaunchOnDefaultDesktop(args);
+            }
+        }
+
+        if (args.Contains("--verify-defect-b"))
+        {
+            var exe = args.SkipWhile(a => a != "--exe").Skip(1).FirstOrDefault()
+                      ?? @"C:\desenv\utils\SmartDockGroups\src\SmartDockGroups.App\bin\Release\net10.0-windows\SmartDockGroups.App.exe";
+            var outDir = args.SkipWhile(a => a != "--out").Skip(1).FirstOrDefault()
+                         ?? @"C:\desenv\utils\SmartDockGroups\docs\execucoes";
+            return DefectBVerifier.Run(Path.GetFullPath(exe), Path.GetFullPath(outDir));
+        }
+
+        if (args.Contains("--capture-teams"))
+        {
+            var exe = args.SkipWhile(a => a != "--exe").Skip(1).FirstOrDefault()
+                      ?? @"C:\desenv\utils\SmartDockGroups\src\SmartDockGroups.App\bin\Release\net10.0-windows\SmartDockGroups.App.exe";
+            var outDir = args.SkipWhile(a => a != "--out").Skip(1).FirstOrDefault()
+                         ?? @"C:\desenv\utils\SmartDockGroups\docs\execucoes";
+            return DefectBVerifier.CaptureRealAppTeams(Path.GetFullPath(exe), Path.GetFullPath(outDir));
+        }
 
         var options = ProbeOptions.Parse(args);
         if (options is null)
@@ -254,9 +280,37 @@ internal static class Program
 
             // Low in the window, away from the header and from any icon tile.
             Win32.RightClick(rect.Left + (rect.Width / 2), rect.Bottom - 24);
-            Thread.Sleep(900);
 
-            var popup = Win32.VisibleWindowsOf(processId).FirstOrDefault(candidate => !before.Contains(candidate));
+            IntPtr popup = IntPtr.Zero;
+            var popupClock = Stopwatch.StartNew();
+            while (popupClock.Elapsed < TimeSpan.FromSeconds(3))
+            {
+                popup = Win32.VisibleWindowsOf(processId).FirstOrDefault(candidate => !before.Contains(candidate));
+                if (popup != IntPtr.Zero)
+                {
+                    break;
+                }
+
+                Thread.Sleep(100);
+            }
+
+            if (popup == IntPtr.Zero)
+            {
+                // Fallback: second right-click attempt
+                Win32.RightClick(rect.Left + (rect.Width / 2), rect.Bottom - 24);
+                popupClock.Restart();
+                while (popupClock.Elapsed < TimeSpan.FromSeconds(3))
+                {
+                    popup = Win32.VisibleWindowsOf(processId).FirstOrDefault(candidate => !before.Contains(candidate));
+                    if (popup != IntPtr.Zero)
+                    {
+                        break;
+                    }
+
+                    Thread.Sleep(100);
+                }
+            }
+
             var items = new JsonArray();
 
             if (popup != IntPtr.Zero)
@@ -279,7 +333,20 @@ internal static class Program
                 }
             }
 
-            Win32.PressEscape();
+            if (popup != IntPtr.Zero)
+            {
+                var closeClock = Stopwatch.StartNew();
+                while (closeClock.Elapsed < TimeSpan.FromSeconds(3) && Win32.IsWindowVisible(popup))
+                {
+                    Win32.PressEscape();
+                    Thread.Sleep(150);
+                }
+            }
+            else
+            {
+                Win32.PressEscape();
+            }
+
             Thread.Sleep(400);
             Win32.SetWindowPos(handle, new IntPtr(-2), 0, 0, 0, 0, 0x0013);
 
@@ -385,13 +452,22 @@ internal static class Program
     {
         var children = new JsonArray();
 
-        if (!element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out var pattern))
+        ExpandCollapsePattern? expand = null;
+        for (var waitPeer = 0; waitPeer < 10; waitPeer++)
         {
-            return children;
+            if (element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out var pat))
+            {
+                var candidate = (ExpandCollapsePattern)pat;
+                if (candidate.Current.ExpandCollapseState != ExpandCollapseState.LeafNode)
+                {
+                    expand = candidate;
+                    break;
+                }
+            }
+            Thread.Sleep(60);
         }
 
-        var expand = (ExpandCollapsePattern)pattern;
-        if (expand.Current.ExpandCollapseState == ExpandCollapseState.LeafNode)
+        if (expand is null)
         {
             return children;
         }
@@ -479,11 +555,12 @@ internal static class Program
     {
         public static ProbeOptions? Parse(string[] args)
         {
+            var cleanArgs = args.Where(a => !a.StartsWith("--no-", StringComparison.OrdinalIgnoreCase)).ToArray();
             string? exe = null, fixture = null, output = null, label = null;
-            for (var index = 0; index + 1 < args.Length; index += 2)
+            for (var index = 0; index + 1 < cleanArgs.Length; index += 2)
             {
-                var value = args[index + 1];
-                switch (args[index].ToLower(CultureInfo.InvariantCulture))
+                var value = cleanArgs[index + 1];
+                switch (cleanArgs[index].ToLower(CultureInfo.InvariantCulture))
                 {
                     case "--exe": exe = value; break;
                     case "--fixture": fixture = value; break;

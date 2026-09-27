@@ -1,26 +1,49 @@
-MultiMonitor Verification Report - SmartDockGroups Defect B
-Timestamp: 2026-09-27 01:37:09
-Detected Screens Count: 2
+MultiMonitor Verification Report - SmartDockGroups Defect B (Caminho Real)
+Data/Hora: 2026-09-27 03:00:37
+Monitores Detectados: 2
+DPI Awareness do Processo de Teste: PerMonitorV2 (manifesto nativo)
+DPI Awareness da Aplicação: System DPI Aware (modo original sem manifesto)
 
 --- Monitor 0 (\\.\DISPLAY4) ---
 Primary: True
-Physical Bounds: Left=0, Top=0, Width=3840, Height=2160
-Physical WorkingArea: Left=0, Top=72, Width=3840, Height=2088
-Physical Cursor Placed: [1920, 1080] (Verified MousePosition: [0, 0])
-PromptPositioning.LastLog: Screen=\\.\DISPLAY4, Cursor={X=1920,Y=1080}, Phys=[1620,971], Scale=[sys:1,5,mon:1,5], WinLeftTop=[1080,647,3333333333334], HWND=1903796
-HWND: 1903796, WPF Window DIPs: Left=1080, Top=647,3333333333334, Width=400, Height=192,63
-Measured Win32 Physical Rect: [1620, 971, 2220, 1260] (Width=600, Height=289)
-Assertion PASSED: Window is 100% contained within Monitor 0 (\\.\DISPLAY4)
-Captured Screenshot: C:\desenv\utils\SmartDockGroups\docs\execucoes\B-monitor1.png
+Bounds Físicos: {X=0,Y=0,Width=3840,Height=2160}
+WorkingArea Útil: {X=0,Y=72,Width=3840,Height=2088}
+Cursor Posicionado Solicitado: [1740, 498]
+Cursor Real Lido por GetCursorPos: [1740, 498]
+Control.MousePosition: [1740, 498]
+Monitor sob o Cursor: \\.\DISPLAY4
+Diálogo TextPromptWindow HWND: 4198606
+Retângulo Win32 Medido (PerMonitorV2): [1620, 971, 2220, 1260] (W=600, H=289)
+Contenção Left: True (dialog: 1620 >= screen: 0)
+Contenção Right: True (dialog: 2220 <= screen: 3840)
+Contenção Top: True (dialog: 971 >= screen: 72)
+Contenção Bottom: True (dialog: 1260 <= screen: 2160)
+Asserção APROVADA: Diálogo 100% contido na área útil do Monitor 0 (\\.\DISPLAY4)
+Captura Recortada das Janelas (Grupo + Diálogo): C:\desenv\utils\SmartDockGroups\docs\execucoes\B-fluxo-real-monitor1.png
+Diálogo fechado via Escape/Cancel (nenhuma alteração persistida).
 
 --- Monitor 1 (\\.\DISPLAY1) ---
 Primary: False
-Physical Bounds: Left=5760, Top=0, Width=2880, Height=1620
-Physical WorkingArea: Left=5760, Top=72, Width=2880, Height=1548
-Physical Cursor Placed: [7200, 810] (Verified MousePosition: [0, 0])
-PromptPositioning.LastLog: Screen=\\.\DISPLAY1, Cursor={X=7200,Y=810}, Phys=[6900,701], Scale=[sys:1,5,mon:1,5], WinLeftTop=[4600,467,3333333333333], HWND=2689938
-HWND: 2689938, WPF Window DIPs: Left=4600, Top=467,3333333333333, Width=400, Height=192,63
-Measured Win32 Physical Rect: [6900, 701, 7500, 990] (Width=600, Height=289)
-Assertion PASSED: Window is 100% contained within Monitor 1 (\\.\DISPLAY1)
-Captured Screenshot: C:\desenv\utils\SmartDockGroups\docs\execucoes\B-monitor2.png
+Bounds Físicos: {X=3840,Y=0,Width=1920,Height=1080}
+WorkingArea Útil: {X=3840,Y=48,Width=1920,Height=1032}
+Cursor Posicionado Solicitado: [4720, 168]
+Cursor Real Lido por GetCursorPos: [4720, 168]
+Control.MousePosition: [4720, 168]
+Monitor sob o Cursor: \\.\DISPLAY1
+Diálogo TextPromptWindow HWND: 4329678
+Retângulo Win32 Medido (PerMonitorV2): [4600, 467, 5000, 660] (W=400, H=193)
+Contenção Left: True (dialog: 4600 >= screen: 3840)
+Contenção Right: True (dialog: 5000 <= screen: 5760)
+Contenção Top: True (dialog: 467 >= screen: 48)
+Contenção Bottom: True (dialog: 660 <= screen: 1080)
+Asserção APROVADA: Diálogo 100% contido na área útil do Monitor 1 (\\.\DISPLAY1)
+Captura Recortada das Janelas (Grupo + Diálogo): C:\desenv\utils\SmartDockGroups\docs\execucoes\B-fluxo-real-monitor2.png
+Diálogo fechado via Escape/Cancel (nenhuma alteração persistida).
 
+--- Teste do Caminho 'Novo Grupo' (App.CreateNewGroup) ---
+Monitor 0: Cursor posicionado em [1920, 1116]
+Diálogo 'Novo Grupo' aberto: HWND=16583880, Rect=[1620,971,2220,1260]
+Contenção 'Novo Grupo' no Monitor 0: True
+Monitor 1: Cursor posicionado em [4800, 564]
+Diálogo 'Novo Grupo' aberto: HWND=4657358, Rect=[4600,467,5000,660]
+Contenção 'Novo Grupo' no Monitor 1: True

@@ -12,3 +12,6 @@ dist/
 
 ## OS
 Thumbs.db
+
+## Test outputs
+tests/runs/
