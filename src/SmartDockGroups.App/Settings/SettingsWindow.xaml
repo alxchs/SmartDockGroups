@@ -4,7 +4,8 @@
                       xmlns:theming="clr-namespace:SmartDockGroups.App.Theming"
                       xmlns:loc="clr-namespace:SmartDockGroups.App.Localization"
                       Title="{loc:Loc settings.title}"
-                      Width="640" Height="640"
+                      Width="640" SizeToContent="Height"
+                      ResizeMode="CanMinimize"
                       WindowStartupLocation="CenterScreen">
     <DockPanel Margin="12">
         <GroupBox Header="{loc:Loc settings.appearance}" DockPanel.Dock="Top" Margin="0,0,0,8">
@@ -38,24 +39,11 @@
                 <TextBlock Text="{loc:Loc settings.restoreGroupsHotkeyHint}" Style="{StaticResource AppHintText}" Margin="0,6,0,0" />
             </StackPanel>
         </GroupBox>
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button Content="{loc:Loc settings.newCategory}" Margin="0,0,8,0" Click="OnAddCategoryClick" />
-            <Button Content="{loc:Loc settings.newItem}" Margin="0,0,8,0" Click="OnAddItemClick" />
-            <Button Content="{loc:Loc settings.edit}" Margin="0,0,8,0" Click="OnEditClick" />
-            <Button Content="{loc:Loc settings.delete}" Margin="0,0,8,0" Click="OnDeleteClick" />
-            <Button Content="{loc:Loc settings.themeButton}" Click="OnEditThemeClick" />
-        </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button Content="{loc:Loc settings.export}" Width="96" Margin="0,0,8,0" Click="OnExportClick" />
             <Button Content="{loc:Loc settings.import}" Width="96" Margin="0,0,16,0" Click="OnImportClick" />
             <Button Content="{loc:Loc settings.save}" Width="96" Margin="0,0,8,0" Click="OnSaveClick" />
             <Button Content="{loc:Loc settings.close}" Width="96" Click="OnCloseClick" />
         </StackPanel>
-        <TreeView x:Name="MenuTree"
-                  AllowDrop="True"
-                  PreviewMouseLeftButtonDown="OnTreeMouseLeftButtonDown"
-                  PreviewMouseMove="OnTreeMouseMove"
-                  DragOver="OnTreeDragOver"
-                  Drop="OnTreeDrop" />
     </DockPanel>
 </theming:ModernWindow>

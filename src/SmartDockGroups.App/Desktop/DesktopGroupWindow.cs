@@ -590,14 +590,6 @@ internal sealed class DesktopGroupWindow : Window
         _onLayoutChanged(_category);
     }
 
-    private void ToggleBadge()
-    {
-        _category.ShowBadge = !_category.ShowBadge;
-        _header.ContextMenu = BuildHeaderContextMenu();
-        ApplyDisplayMode();
-        _onLayoutChanged(_category);
-    }
-
     /// <summary>
     /// Drives the whole press-drag-release gesture through WPF's own <see cref="Window.DragMove"/>
     /// — the same primitive the header already uses — instead of accumulating the move by
@@ -1331,11 +1323,6 @@ internal sealed class DesktopGroupWindow : Window
 
         lines.Add($"{LocalizationService.Get("group.areaOpacity")}: {_category.AreaOpacity * 100:0}%");
 
-        if (_category.ShowBadge)
-        {
-            lines.Add(LocalizationService.Get("group.showBadge"));
-        }
-
         _headerText.ToolTip = null;
     }
 
@@ -1460,7 +1447,7 @@ internal sealed class DesktopGroupWindow : Window
             LocalizationService.Get(IsAppFolder ? "group.stylePanel" : "group.styleAppFolder"),
             ToggleDisplayMode,
             IsAppFolder ? "IconStylePanel" : "IconStyleAppFolder");
-        AddCheckItem(menu, LocalizationService.Get("group.showBadge"), _category.ShowBadge, ToggleBadge, "IconBadge");
+
 
         menu.Items.Add(BuildSeparator());
         AddMenuItem(menu, LocalizationService.Get("group.backgroundColor"), OnChangeColorClick, "IconColor");

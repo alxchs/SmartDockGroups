@@ -81,7 +81,6 @@
   "group.openFolder": "Abrir carpeta",
   "group.stylePanel": "Estilo: panel",
   "group.styleAppFolder": "Estilo: carpeta de apps",
-  "group.showBadge": "Distintivo de recuento",
   "group.deleteConfirm": "¿Eliminar el grupo \"{0}\" y todos sus elementos fijados?",
   "group.namePrompt": "Nombre del grupo:",
   "group.imageFilter": "Imágenes (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",

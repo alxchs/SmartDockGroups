@@ -81,7 +81,6 @@
   "group.openFolder": "フォルダーを開く",
   "group.stylePanel": "スタイル: パネル",
   "group.styleAppFolder": "スタイル: アプリフォルダー",
-  "group.showBadge": "件数バッジ",
   "group.deleteConfirm": "グループ「{0}」と固定されたすべての項目を削除しますか?",
   "group.namePrompt": "グループ名:",
   "group.imageFilter": "画像 (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",

@@ -54,11 +54,6 @@ internal static class AppFolderTile
         var plateLayer = new Grid { Width = plateSize, Height = plateSize };
         plateLayer.Children.Add(plate);
 
-        var count = GroupEntries.Count(category);
-        if (category.ShowBadge && count > 0)
-        {
-            plateLayer.Children.Add(BuildBadge(count, theme, scale));
-        }
 
         var stack = new StackPanel
         {
@@ -130,32 +125,6 @@ internal static class AppFolderTile
         };
     }
 
-    private static UIElement BuildBadge(int count, MenuTheme theme, double scale)
-    {
-        var text = new TextBlock
-        {
-            Text = count > 99 ? "99+" : count.ToString(),
-            Foreground = Brushes.White,
-            FontFamily = new FontFamily(theme.ItemFontFamily),
-            FontSize = 11 * scale,
-            FontWeight = FontWeights.SemiBold,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        return new Border
-        {
-            MinWidth = 22 * scale,
-            Height = 22 * scale,
-            CornerRadius = new CornerRadius(11 * scale),
-            Padding = new Thickness(6 * scale, 0, 6 * scale, 0),
-            Background = new SolidColorBrush(Color.FromRgb(0x00, 0x78, 0xD4)),
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, -7 * scale, -7 * scale, 0),
-            Child = text
-        };
-    }
 
     private static UIElement BuildCaption(MenuCategory category, MenuTheme theme, double plateSize, double scale)
     {

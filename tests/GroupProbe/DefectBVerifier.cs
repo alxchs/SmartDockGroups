@@ -114,8 +114,6 @@ internal static class DefectBVerifier
                     ["AreaOpacity"] = 1.0,
                     ["TitleOpacity"] = 1.0,
                     ["DisplayMode"] = "Panel",
-                    ["ShowBadge"] = true,
-                    ["IconArrangement"] = "None"
                 },
                 new JsonObject
                 {
@@ -146,7 +144,6 @@ internal static class DefectBVerifier
                     ["AreaOpacity"] = 1.0,
                     ["TitleOpacity"] = 1.0,
                     ["DisplayMode"] = "Panel",
-                    ["ShowBadge"] = true,
                     ["IconArrangement"] = "None"
                 }
             },
@@ -629,7 +626,6 @@ internal static class DefectBVerifier
                     ["AreaOpacity"] = 1.0,
                     ["TitleOpacity"] = 1.0,
                     ["DisplayMode"] = mode,
-                    ["ShowBadge"] = true,
                     ["IconArrangement"] = "None"
                 }
             },

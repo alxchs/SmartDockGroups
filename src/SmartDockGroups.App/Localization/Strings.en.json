@@ -84,7 +84,6 @@
   "group.openFolder": "Open folder",
   "group.stylePanel": "Style: panel",
   "group.styleAppFolder": "Style: app folder",
-  "group.showBadge": "Count badge",
   "group.deleteConfirm": "Remove group \"{0}\" and all its pinned items?",
   "group.namePrompt": "Group name:",
   "group.imageFilter": "Images (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",

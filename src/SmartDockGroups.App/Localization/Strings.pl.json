@@ -81,7 +81,6 @@
   "group.openFolder": "Otwórz folder",
   "group.stylePanel": "Styl: panel",
   "group.styleAppFolder": "Styl: folder aplikacji",
-  "group.showBadge": "Odznaka licznika",
   "group.deleteConfirm": "Usunąć grupę „{0}” i wszystkie przypięte elementy?",
   "group.namePrompt": "Nazwa grupy:",
   "group.imageFilter": "Obrazy (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
