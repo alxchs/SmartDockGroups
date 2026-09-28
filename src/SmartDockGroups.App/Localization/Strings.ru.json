@@ -81,7 +81,6 @@
   "group.openFolder": "Открыть папку",
   "group.stylePanel": "Стиль: панель",
   "group.styleAppFolder": "Стиль: папка приложений",
-  "group.showBadge": "Значок счётчика",
   "group.deleteConfirm": "Удалить группу «{0}» и все закреплённые в ней элементы?",
   "group.namePrompt": "Имя группы:",
   "group.imageFilter": "Изображения (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",

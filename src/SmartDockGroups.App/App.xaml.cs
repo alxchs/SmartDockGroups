@@ -378,11 +378,33 @@ public partial class App : Application, IDesktopGroupCommands
         return transform.Transform(new System.Windows.Point(screenPoint.X, screenPoint.Y));
     }
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    private static void BringWindowToFront(Window window)
+    {
+        if (window.WindowState == WindowState.Minimized)
+        {
+            window.WindowState = WindowState.Normal;
+        }
+
+        window.Activate();
+        window.Topmost = true;
+        window.Topmost = false;
+        window.Focus();
+
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+        if (hwnd != IntPtr.Zero)
+        {
+            SetForegroundWindow(hwnd);
+        }
+    }
+
     private void OpenSettingsWindow()
     {
         if (_settingsWindow is not null)
         {
-            _settingsWindow.Activate();
+            BringWindowToFront(_settingsWindow);
             return;
         }
 
@@ -394,6 +416,7 @@ public partial class App : Application, IDesktopGroupCommands
             _settingsWindow = null;
         };
         _settingsWindow.Show();
+        BringWindowToFront(_settingsWindow);
     }
 
     private void OnConfigurationSaved(object? sender, EventArgs e)

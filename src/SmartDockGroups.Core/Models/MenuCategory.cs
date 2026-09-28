@@ -56,13 +56,12 @@ public sealed class MenuCategory : IMenuContainer
     /// </summary>
     public double? PanelX { get; set; }
     public double? PanelY { get; set; }
-    public bool ShowBadge { get; set; } = true;
 
     /// <summary>How this group's icons are kept laid out. See <see cref="IconArrangement"/>.</summary>
     public IconArrangement IconArrangement { get; set; } = IconArrangement.None;
 
     /// <summary>
-    /// Takes on another group's appearance — theme, opacities, backdrop and badge —
+    /// Takes on another group's appearance — theme, opacities and backdrop —
     /// while leaving its own contents, position and size alone.
     /// </summary>
     public void CopyVisualFrom(MenuCategory source)
@@ -71,7 +70,6 @@ public sealed class MenuCategory : IMenuContainer
         AreaOpacity = source.AreaOpacity;
         TitleOpacity = source.TitleOpacity;
         DesktopBackgroundImagePath = source.DesktopBackgroundImagePath;
-        ShowBadge = source.ShowBadge;
         DesktopIconScale = source.DesktopIconScale;
     }
 
@@ -100,7 +98,6 @@ public sealed class MenuCategory : IMenuContainer
             DisplayMode = DisplayMode,
             PanelX = PanelX,
             PanelY = PanelY,
-            ShowBadge = ShowBadge,
             IconArrangement = IconArrangement
         };
     }

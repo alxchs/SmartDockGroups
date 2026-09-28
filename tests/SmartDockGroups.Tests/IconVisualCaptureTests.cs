@@ -44,7 +44,6 @@ public sealed class IconVisualCaptureTests
         {
             Name = "Teams Chat",
             DisplayMode = DesktopGroupDisplayMode.AppFolder,
-            ShowBadge = true,
             DesktopIconScale = 1.0,
             AreaOpacity = 1.0,
             TitleOpacity = 1.0

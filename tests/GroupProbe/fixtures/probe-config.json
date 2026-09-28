@@ -52,7 +52,6 @@
       "AreaOpacity": 1.0,
       "TitleOpacity": 1.0,
       "DisplayMode": "Panel",
-      "ShowBadge": true,
       "IconArrangement": "ByName"
     },
     {
@@ -89,7 +88,6 @@
       "AreaOpacity": 1.0,
       "TitleOpacity": 1.0,
       "DisplayMode": "Panel",
-      "ShowBadge": true,
       "IconArrangement": "None"
     }
   ],

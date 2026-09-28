@@ -5,14 +5,8 @@ using SmartDockGroups.App.Localization;
 using SmartDockGroups.App.Theming;
 using SmartDockGroups.Core.Configuration;
 using SmartDockGroups.Core.Models;
-using DragEventArgs = System.Windows.DragEventArgs;
-using DragDropEffects = System.Windows.DragDropEffects;
 using MessageBox = System.Windows.MessageBox;
-using MouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
-using MouseButtonState = System.Windows.Input.MouseButtonState;
-using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
-using Point = System.Windows.Point;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
 namespace SmartDockGroups.App.Settings;
@@ -21,9 +15,6 @@ public partial class SettingsWindow : ModernWindow
 {
     private readonly LauncherConfiguration _target;
     private readonly LauncherConfiguration _workingConfiguration;
-
-    private Point? _dragStartPoint;
-    private TreeViewItem? _dragCandidate;
 
     public event EventHandler? ConfigurationSaved;
 
@@ -34,7 +25,6 @@ public partial class SettingsWindow : ModernWindow
         _target = configuration;
         _workingConfiguration = configuration.Clone();
 
-        RebuildTree();
         LoadBehavior();
     }
 
@@ -146,280 +136,6 @@ public partial class SettingsWindow : ModernWindow
         behavior.RestoreGroupsHotkeyModifiers = restoreModifiers;
     }
 
-    private void RebuildTree()
-    {
-        MenuTree.Items.Clear();
-        PopulateContainer(MenuTree.Items, _workingConfiguration);
-    }
-
-    private static void PopulateContainer(ItemCollection collection, IMenuContainer container)
-    {
-        foreach (var item in container.Items)
-        {
-            collection.Add(new TreeViewItem
-            {
-                Header = item.Name,
-                Tag = new NodeTag(container, item, null)
-            });
-        }
-
-        foreach (var category in container.Categories)
-        {
-            var categoryNode = new TreeViewItem
-            {
-                Header = category.Name,
-                Tag = new NodeTag(container, null, category),
-                IsExpanded = true
-            };
-
-            PopulateContainer(categoryNode.Items, category);
-            collection.Add(categoryNode);
-        }
-    }
-
-    private NodeTag? GetSelectedNode()
-    {
-        return (MenuTree.SelectedItem as TreeViewItem)?.Tag as NodeTag;
-    }
-
-    private IMenuContainer GetTargetContainer()
-    {
-        var selected = GetSelectedNode();
-        if (selected is null)
-        {
-            return _workingConfiguration;
-        }
-
-        return selected.Category ?? selected.Parent;
-    }
-
-    private void OnAddCategoryClick(object sender, RoutedEventArgs e)
-    {
-        var prompt = new TextPromptWindow(LocalizationService.Get("settings.newCategoryPrompt"), string.Empty) { Owner = this };
-        if (prompt.ShowDialog() != true)
-        {
-            return;
-        }
-
-        GetTargetContainer().Categories.Add(new MenuCategory { Name = prompt.Value });
-        RebuildTree();
-    }
-
-    private void OnAddItemClick(object sender, RoutedEventArgs e)
-    {
-        var newItem = new LaunchItem
-        {
-            Name = string.Empty,
-            Type = LaunchItemType.Application,
-            Target = string.Empty
-        };
-
-        var editor = new LaunchItemEditWindow(newItem) { Owner = this };
-        if (editor.ShowDialog() != true)
-        {
-            return;
-        }
-
-        GetTargetContainer().Items.Add(newItem);
-        RebuildTree();
-    }
-
-    private void OnEditClick(object sender, RoutedEventArgs e)
-    {
-        var selected = GetSelectedNode();
-        if (selected is null)
-        {
-            return;
-        }
-
-        if (selected.Item is not null)
-        {
-            new LaunchItemEditWindow(selected.Item) { Owner = this }.ShowDialog();
-            RebuildTree();
-            return;
-        }
-
-        if (selected.Category is null)
-        {
-            return;
-        }
-
-        var prompt = new TextPromptWindow(LocalizationService.Get("settings.newCategoryPrompt"), selected.Category.Name) { Owner = this };
-        if (prompt.ShowDialog() == true)
-        {
-            selected.Category.Name = prompt.Value;
-        }
-
-        RebuildTree();
-    }
-
-    private void OnDeleteClick(object sender, RoutedEventArgs e)
-    {
-        var selected = GetSelectedNode();
-        if (selected is null)
-        {
-            return;
-        }
-
-        var name = selected.Item?.Name ?? selected.Category?.Name;
-        var confirmed = MessageBox.Show(
-            this,
-            LocalizationService.Format("settings.deleteConfirm", name!),
-            LocalizationService.Get("common.appName"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (confirmed != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
-        if (selected.Item is not null)
-        {
-            selected.Parent.Items.Remove(selected.Item);
-        }
-        else if (selected.Category is not null)
-        {
-            selected.Parent.Categories.Remove(selected.Category);
-        }
-
-        RebuildTree();
-    }
-
-    private void OnEditThemeClick(object sender, RoutedEventArgs e)
-    {
-        var selected = GetSelectedNode();
-        new ThemeEditWindow(_workingConfiguration, selected?.Category) { Owner = this }.ShowDialog();
-    }
-
-    private void OnTreeMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        _dragStartPoint = e.GetPosition(MenuTree);
-        _dragCandidate = FindAncestorTreeViewItem(e.OriginalSource as DependencyObject);
-    }
-
-    private void OnTreeMouseMove(object sender, MouseEventArgs e)
-    {
-        if (e.LeftButton != MouseButtonState.Pressed || _dragStartPoint is null || _dragCandidate is null)
-        {
-            return;
-        }
-
-        var offset = e.GetPosition(MenuTree) - _dragStartPoint.Value;
-        if (Math.Abs(offset.X) < SystemParameters.MinimumHorizontalDragDistance &&
-            Math.Abs(offset.Y) < SystemParameters.MinimumVerticalDragDistance)
-        {
-            return;
-        }
-
-        var draggedNode = _dragCandidate;
-        _dragStartPoint = null;
-        _dragCandidate = null;
-
-        DragDrop.DoDragDrop(draggedNode, draggedNode, DragDropEffects.Move);
-    }
-
-    private void OnTreeDragOver(object sender, DragEventArgs e)
-    {
-        e.Effects = e.Data.GetDataPresent(typeof(TreeViewItem)) ? DragDropEffects.Move : DragDropEffects.None;
-        e.Handled = true;
-    }
-
-    private void OnTreeDrop(object sender, DragEventArgs e)
-    {
-        if (e.Data.GetData(typeof(TreeViewItem)) is not TreeViewItem draggedNode || draggedNode.Tag is not NodeTag draggedTag)
-        {
-            return;
-        }
-
-        var targetNode = FindAncestorTreeViewItem(e.OriginalSource as DependencyObject);
-        if (targetNode == draggedNode)
-        {
-            return;
-        }
-
-        var targetTag = targetNode?.Tag as NodeTag;
-
-        IMenuContainer destination;
-        LaunchItem? insertBeforeItem = null;
-
-        if (targetTag?.Category is not null)
-        {
-            destination = targetTag.Category;
-        }
-        else if (targetTag?.Item is not null)
-        {
-            destination = targetTag.Parent;
-            insertBeforeItem = targetTag.Item;
-        }
-        else
-        {
-            destination = _workingConfiguration;
-        }
-
-        if (draggedTag.Category is not null && IsCategoryOrDescendant(draggedTag.Category, destination))
-        {
-            return;
-        }
-
-        MoveNode(draggedTag, destination, insertBeforeItem);
-        RebuildTree();
-    }
-
-    private static void MoveNode(NodeTag dragged, IMenuContainer destination, LaunchItem? insertBeforeItem)
-    {
-        if (dragged.Item is not null)
-        {
-            dragged.Parent.Items.Remove(dragged.Item);
-
-            var index = insertBeforeItem is not null ? destination.Items.IndexOf(insertBeforeItem) : -1;
-            if (index < 0)
-            {
-                destination.Items.Add(dragged.Item);
-            }
-            else
-            {
-                destination.Items.Insert(index, dragged.Item);
-            }
-
-            return;
-        }
-
-        if (dragged.Category is not null)
-        {
-            dragged.Parent.Categories.Remove(dragged.Category);
-            destination.Categories.Add(dragged.Category);
-        }
-    }
-
-    private static bool IsCategoryOrDescendant(MenuCategory category, IMenuContainer container)
-    {
-        if (ReferenceEquals(category, container))
-        {
-            return true;
-        }
-
-        foreach (var child in category.Categories)
-        {
-            if (IsCategoryOrDescendant(child, container))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static TreeViewItem? FindAncestorTreeViewItem(DependencyObject? source)
-    {
-        while (source is not null and not TreeViewItem)
-        {
-            source = VisualTreeHelper.GetParent(source);
-        }
-
-        return source as TreeViewItem;
-    }
-
     private void OnExportClick(object sender, RoutedEventArgs e)
     {
         var dialog = new SaveFileDialog
@@ -458,7 +174,6 @@ public partial class SettingsWindow : ModernWindow
         }
 
         _workingConfiguration.ReplaceContentsWith(imported);
-        RebuildTree();
         LoadBehavior();
     }
 
@@ -473,6 +188,4 @@ public partial class SettingsWindow : ModernWindow
     {
         Close();
     }
-
-    private sealed record NodeTag(IMenuContainer Parent, LaunchItem? Item, MenuCategory? Category);
 }

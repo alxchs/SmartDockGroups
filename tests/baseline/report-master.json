@@ -436,7 +436,6 @@
         "AreaOpacity": 1,
         "TitleOpacity": 1,
         "DisplayMode": "Panel",
-        "ShowBadge": true,
         "IconArrangement": "ByName"
       },
       {
@@ -474,7 +473,6 @@
         "AreaOpacity": 1,
         "TitleOpacity": 1,
         "DisplayMode": "Panel",
-        "ShowBadge": true,
         "IconArrangement": "None"
       }
     ],

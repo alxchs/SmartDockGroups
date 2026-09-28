@@ -81,7 +81,6 @@
   "group.openFolder": "Ordner öffnen",
   "group.stylePanel": "Stil: Panel",
   "group.styleAppFolder": "Stil: App-Ordner",
-  "group.showBadge": "Anzahl-Badge",
   "group.deleteConfirm": "Gruppe \"{0}\" und alle angehefteten Elemente entfernen?",
   "group.namePrompt": "Gruppenname:",
   "group.imageFilter": "Bilder (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
