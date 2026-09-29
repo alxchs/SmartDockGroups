@@ -151,4 +151,106 @@ internal static class MonitorPlacement
         var dy = Math.Max(Math.Max(area.Y - point.Y, 0), point.Y - area.Bottom);
         return (dx * dx) + (dy * dy);
     }
+
+    /// <summary>
+    /// Arranges a collection of group rectangles centered on <paramref name="destArea"/>
+    /// without changing their sizes, keeping them compact and close to the monitor's center.
+    /// </summary>
+    public static IReadOnlyList<Point> ArrangeCentered(IReadOnlyList<Size> sizes, Rect destArea, double gap = 20)
+    {
+        var count = sizes.Count;
+        if (count == 0)
+        {
+            return Array.Empty<Point>();
+        }
+
+        if (count == 1)
+        {
+            var single = sizes[0];
+            var x = destArea.X + Math.Max(0, (destArea.Width - single.Width) / 2);
+            var y = destArea.Y + Math.Max(0, (destArea.Height - single.Height) / 2);
+            return new[] { new Point(x, y) };
+        }
+
+        var screenAspect = destArea.Width / Math.Max(1, destArea.Height);
+
+        var bestCols = 1;
+        var bestScore = double.MaxValue;
+        var bestRows = new List<List<int>>();
+        var bestTotalHeight = 0.0;
+        var bestRowWidths = new List<double>();
+        var bestRowHeights = new List<double>();
+
+        for (var cols = 1; cols <= count; cols++)
+        {
+            var rows = new List<List<int>>();
+            var rowWidths = new List<double>();
+            var rowHeights = new List<double>();
+
+            var currentIdx = 0;
+            while (currentIdx < count)
+            {
+                var row = new List<int>();
+                var rowW = 0.0;
+                var rowH = 0.0;
+                for (var c = 0; c < cols && currentIdx < count; c++, currentIdx++)
+                {
+                    row.Add(currentIdx);
+                    rowW += sizes[currentIdx].Width;
+                    rowH = Math.Max(rowH, sizes[currentIdx].Height);
+                }
+                rowW += (row.Count - 1) * gap;
+                rows.Add(row);
+                rowWidths.Add(rowW);
+                rowHeights.Add(rowH);
+            }
+
+            var totalW = rowWidths.Max();
+            var totalH = rowHeights.Sum() + ((rows.Count - 1) * gap);
+
+            var overflows = totalW > destArea.Width || totalH > destArea.Height;
+            var layoutAspect = totalW / Math.Max(1, totalH);
+            var aspectDiff = Math.Abs(Math.Log(layoutAspect / screenAspect));
+
+            var score = (overflows ? 1000.0 : 0.0)
+                        + (aspectDiff * 10.0)
+                        + Math.Abs(cols - Math.Sqrt(count * screenAspect));
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestCols = cols;
+                bestRows = rows;
+                bestTotalHeight = totalH;
+                bestRowWidths = rowWidths;
+                bestRowHeights = rowHeights;
+            }
+        }
+
+        var result = new Point[count];
+        var startY = destArea.Y + Math.Max(0, (destArea.Height - bestTotalHeight) / 2);
+        var curY = startY;
+
+        for (var r = 0; r < bestRows.Count; r++)
+        {
+            var row = bestRows[r];
+            var rWidth = bestRowWidths[r];
+            var rHeight = bestRowHeights[r];
+
+            var rowStartX = destArea.X + Math.Max(0, (destArea.Width - rWidth) / 2);
+            var curX = rowStartX;
+
+            foreach (var idx in row)
+            {
+                var itemSize = sizes[idx];
+                var itemY = curY + Math.Max(0, (rHeight - itemSize.Height) / 2);
+                result[idx] = new Point(curX, itemY);
+                curX += itemSize.Width + gap;
+            }
+
+            curY += rHeight + gap;
+        }
+
+        return result;
+    }
 }

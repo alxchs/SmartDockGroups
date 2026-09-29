@@ -126,5 +126,8 @@
   "theme.shadowBlur": "影のぼかし",
   "theme.shadowDepth": "影の距離",
   "theme.shadowDirection": "影の方向（度）",
-  "theme.shadowOpacity": "影の不透明度"
+  "theme.shadowOpacity": "影の不透明度",
+  "group.bringAllToThisMonitorCentered": "すべてのグループをこのモニターの中央に集める",
+  "group.sendAllToMonitor": "すべてのグループをモニター {0} ({1}x{2}) に送信",
+  "group.sendAllToMonitorPrimary": "すべてのグループをモニター {0} (プライマリ, {1}x{2}) に送信"
 }

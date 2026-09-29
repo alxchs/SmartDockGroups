@@ -143,5 +143,8 @@
   "group.windowOrder": "Ordem na área de trabalho",
   "group.bringAllToFront": "Trazer todos os grupos para frente",
   "group.sendOthersToBack": "Enviar todos para trás (exceto este)",
-  "group.sendAllToBack": "Enviar todos para trás"
+  "group.sendAllToBack": "Enviar todos para trás",
+  "group.bringAllToThisMonitorCentered": "Trazer todos os grupos para este monitor centralizados",
+  "group.sendAllToMonitor": "Enviar todos os grupos para o Monitor {0} ({1}x{2})",
+  "group.sendAllToMonitorPrimary": "Enviar todos os grupos para o Monitor {0} (Principal, {1}x{2})"
 }

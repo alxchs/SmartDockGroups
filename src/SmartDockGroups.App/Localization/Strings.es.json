@@ -126,5 +126,8 @@
   "theme.shadowBlur": "Desenfoque de sombra",
   "theme.shadowDepth": "Distancia de sombra",
   "theme.shadowDirection": "Dirección de sombra (grados)",
-  "theme.shadowOpacity": "Opacidad de sombra"
+  "theme.shadowOpacity": "Opacidad de sombra",
+  "group.bringAllToThisMonitorCentered": "Traer todos los grupos a este monitor (centrados)",
+  "group.sendAllToMonitor": "Enviar todos los grupos al Monitor {0} ({1}x{2})",
+  "group.sendAllToMonitorPrimary": "Enviar todos los grupos al Monitor {0} (Principal, {1}x{2})"
 }

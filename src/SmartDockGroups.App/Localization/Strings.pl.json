@@ -126,5 +126,8 @@
   "theme.shadowBlur": "Rozmycie cienia",
   "theme.shadowDepth": "Odległość cienia",
   "theme.shadowDirection": "Kierunek cienia (stopnie)",
-  "theme.shadowOpacity": "Krycie cienia"
+  "theme.shadowOpacity": "Krycie cienia",
+  "group.bringAllToThisMonitorCentered": "Przenieś wszystkie grupy na ten monitor (wyśrodkowane)",
+  "group.sendAllToMonitor": "Wyślij wszystkie grupy na Monitor {0} ({1}x{2})",
+  "group.sendAllToMonitorPrimary": "Wyślij wszystkie grupy na Monitor {0} (Główny, {1}x{2})"
 }

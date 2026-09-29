@@ -126,5 +126,8 @@
   "theme.shadowBlur": "Размытие тени",
   "theme.shadowDepth": "Смещение тени",
   "theme.shadowDirection": "Направление тени (градусы)",
-  "theme.shadowOpacity": "Непрозрачность тени"
+  "theme.shadowOpacity": "Непрозрачность тени",
+  "group.bringAllToThisMonitorCentered": "Собрать все группы по центру на этом мониторе",
+  "group.sendAllToMonitor": "Отправить все группы на Монитор {0} ({1}x{2})",
+  "group.sendAllToMonitorPrimary": "Отправить все группы на Монитор {0} (Основной, {1}x{2})"
 }

@@ -175,4 +175,76 @@ public sealed class MonitorPlacementTests
         var taken = new List<Point> { new(800, 600) };
         Assert.Equal(new Point(100, 100), MonitorPlacement.AvoidStacking(new Point(100, 100), new Size(400, 300), Primary, taken));
     }
+
+    [Fact]
+    public void ArrangeCentered_places_single_group_exactly_in_monitor_center()
+    {
+        var area = new Rect(0, 0, 1920, 1080);
+        var size = new Size(400, 300);
+
+        var result = MonitorPlacement.ArrangeCentered(new[] { size }, area);
+
+        var point = Assert.Single(result);
+        Assert.Equal(760, point.X); // (1920 - 400) / 2
+        Assert.Equal(390, point.Y); // (1080 - 300) / 2
+    }
+
+    [Fact]
+    public void ArrangeCentered_places_multiple_groups_without_overlap_and_inside_bounds()
+    {
+        var area = new Rect(1920, 0, 2560, 1440);
+        var sizes = new[]
+        {
+            new Size(400, 250),
+            new Size(350, 300),
+            new Size(420, 260),
+            new Size(380, 280)
+        };
+
+        var points = MonitorPlacement.ArrangeCentered(sizes, area, gap: 20);
+
+        Assert.Equal(sizes.Length, points.Count);
+
+        var rects = points.Zip(sizes, (p, s) => new Rect(p, s)).ToList();
+
+        // All rects must be strictly inside the monitor work area
+        foreach (var r in rects)
+        {
+            Assert.True(area.Contains(r), $"Rect {r} is not contained within monitor {area}");
+        }
+
+        // No two rects should intersect
+        for (var i = 0; i < rects.Count; i++)
+        {
+            for (var j = i + 1; j < rects.Count; j++)
+            {
+                var overlap = Rect.Intersect(rects[i], rects[j]);
+                Assert.True(overlap.IsEmpty, $"Rects {i} and {j} overlap: {overlap}");
+            }
+        }
+    }
+
+    [Fact]
+    public void MapBetween_preserves_relative_percentage_between_different_resolutions()
+    {
+        var mon1080p = new Rect(0, 0, 1920, 1080);
+        var mon1440p = new Rect(1920, 0, 2560, 1440);
+        var groupSize = new Size(400, 300);
+
+        // Group positioned at 50% horizontal and 50% vertical travel on 1080p
+        var group1080p = new Rect(
+            mon1080p.X + (0.5 * (mon1080p.Width - groupSize.Width)),
+            mon1080p.Y + (0.5 * (mon1080p.Height - groupSize.Height)),
+            groupSize.Width,
+            groupSize.Height);
+
+        var mapped = MonitorPlacement.MapBetween(group1080p, mon1080p, mon1440p);
+
+        // Expected on 1440p at 50% relative travel
+        var expectedX = mon1440p.X + (0.5 * (mon1440p.Width - groupSize.Width));
+        var expectedY = mon1440p.Y + (0.5 * (mon1440p.Height - groupSize.Height));
+
+        Assert.Equal(expectedX, mapped.X, 2);
+        Assert.Equal(expectedY, mapped.Y, 2);
+    }
 }

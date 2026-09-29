@@ -1445,6 +1445,9 @@ internal sealed class DesktopGroupWindow : Window
         AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToFront"), BringAllGroupsToFront);
         AddMenuItem(orderMenu, LocalizationService.Get("group.sendOthersToBack"), SendOthersToBack);
         AddMenuItem(orderMenu, LocalizationService.Get("group.sendAllToBack"), SendAllToBack);
+        orderMenu.Items.Add(BuildSeparator());
+        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToThisMonitorCentered"), BringAllGroupsToThisMonitorCentered, "IconGrid");
+        PopulateSendAllToMonitors(orderMenu);
         menu.Items.Add(orderMenu);
 
         menu.Items.Add(BuildSeparator());
@@ -2167,6 +2170,99 @@ internal sealed class DesktopGroupWindow : Window
             {
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             }
+        }
+    }
+
+    private void PopulateSendAllToMonitors(ItemsControl orderMenu)
+    {
+        var screens = System.Windows.Forms.Screen.AllScreens;
+        var areas = DisplayInventory.WorkAreas(this);
+
+        for (var i = 0; i < screens.Length && i < areas.Count; i++)
+        {
+            var targetIndex = i;
+            var screen = screens[i];
+            var area = areas[i];
+            var label = screen.Primary
+                ? LocalizationService.Format("group.sendAllToMonitorPrimary", i + 1, (int)area.Width, (int)area.Height)
+                : LocalizationService.Format("group.sendAllToMonitor", i + 1, (int)area.Width, (int)area.Height);
+
+            AddMenuItem(orderMenu, label, () => SendAllGroupsToMonitor(targetIndex));
+        }
+    }
+
+    private void BringAllGroupsToThisMonitorCentered()
+    {
+        var areas = DisplayInventory.WorkAreas(this);
+        if (areas.Count == 0)
+        {
+            return;
+        }
+
+        var currentMonitorIndex = MonitorPlacement.IndexOfOwner(HomeRect, areas);
+        if (currentMonitorIndex < 0 || currentMonitorIndex >= areas.Count)
+        {
+            currentMonitorIndex = 0;
+        }
+
+        var destArea = areas[currentMonitorIndex];
+        var windows = _allGroupWindows.ToList();
+        if (windows.Count == 0)
+        {
+            return;
+        }
+
+        var sizes = windows.Select(w => new System.Windows.Size(
+            w.ActualWidth > 0 ? w.ActualWidth : w._category.DesktopWidth,
+            w.ActualHeight > 0 ? w.ActualHeight : w._category.DesktopHeight)).ToList();
+
+        var positions = MonitorPlacement.ArrangeCentered(sizes, destArea);
+
+        for (var i = 0; i < windows.Count && i < positions.Count; i++)
+        {
+            var w = windows[i];
+            var pos = positions[i];
+
+            w.PlaceWithoutSaving(pos.X, pos.Y);
+            w._category.DesktopX = pos.X;
+            w._category.DesktopY = pos.Y;
+            w._onLayoutChanged(w._category);
+        }
+    }
+
+    private void SendAllGroupsToMonitor(int targetMonitorIndex)
+    {
+        var areas = DisplayInventory.WorkAreas(this);
+        if (targetMonitorIndex < 0 || targetMonitorIndex >= areas.Count)
+        {
+            return;
+        }
+
+        var destArea = areas[targetMonitorIndex];
+        var taken = new List<System.Windows.Point>();
+
+        foreach (var window in _allGroupWindows.ToList())
+        {
+            var home = window.HomeRect;
+            var fromIndex = MonitorPlacement.IndexOfOwner(home, areas);
+            var fromArea = (fromIndex >= 0 && fromIndex < areas.Count) ? areas[fromIndex] : destArea;
+
+            System.Windows.Point targetPos;
+            if (fromIndex == targetMonitorIndex)
+            {
+                targetPos = MonitorPlacement.ClampInto(home.Location, home.Size, destArea);
+            }
+            else
+            {
+                targetPos = MonitorPlacement.MapBetween(home, fromArea, destArea);
+            }
+
+            targetPos = MonitorPlacement.AvoidStacking(targetPos, home.Size, destArea, taken);
+
+            window.PlaceWithoutSaving(targetPos.X, targetPos.Y);
+            window._category.DesktopX = targetPos.X;
+            window._category.DesktopY = targetPos.Y;
+            window._onLayoutChanged(window._category);
         }
     }
 
