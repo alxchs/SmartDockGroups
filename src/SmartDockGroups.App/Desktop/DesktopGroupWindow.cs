@@ -533,6 +533,12 @@ internal sealed class DesktopGroupWindow : Window
 
     private double PaddingY => Math.Max(MinCanvasPadding, _category.DesktopHeight * CanvasPaddingRatio);
 
+    /// <summary>Horizontal cell stride (pre-zoom): icon size plus the user-defined extra gap.</summary>
+    private double HStride => TileSize + _category.IconHGap;
+
+    /// <summary>Vertical cell stride (pre-zoom): icon size plus the user-defined extra gap.</summary>
+    private double VStride => TileSize + _category.IconVGap;
+
     private void ApplyDisplayMode()
     {
         UpdateHeaderTooltip();
@@ -1459,6 +1465,11 @@ internal sealed class DesktopGroupWindow : Window
         AddOpacitySlider(opacityMenu, LocalizationService.Get("group.titleOpacity"), _category.TitleOpacity, SetTitleOpacity);
         menu.Items.Add(opacityMenu);
 
+        var spacingMenu = CreateMenuItem(LocalizationService.Get("group.iconSpacing"), "IconSpacing");
+        AddSpacingSlider(spacingMenu, LocalizationService.Get("group.iconHGap"), _category.IconHGap, SetIconHGap);
+        AddSpacingSlider(spacingMenu, LocalizationService.Get("group.iconVGap"), _category.IconVGap, SetIconVGap);
+        menu.Items.Add(spacingMenu);
+
         if (_commands is not null)
         {
             menu.Items.Add(BuildSeparator());
@@ -1651,6 +1662,50 @@ internal sealed class DesktopGroupWindow : Window
         parent.Items.Add(item);
     }
 
+    private void AddSpacingSlider(ItemsControl parent, string label, double value, Action<double> apply)
+    {
+        var caption = new TextBlock
+        {
+            Foreground = ThemeBrushes.CreateBrush(_theme.TextColor, 1.0),
+            FontFamily = new FontFamily(_theme.ItemFontFamily),
+            FontSize = _theme.ItemFontSize - 1
+        };
+
+        var slider = new Slider
+        {
+            Minimum = 10,
+            Maximum = 30,
+            Value = Math.Clamp(value, 10, 30),
+            Width = 168,
+            SmallChange = 1,
+            LargeChange = 5,
+            IsSnapToTickEnabled = true,
+            TickFrequency = 1,
+            Margin = new Thickness(0, 6, 0, 0)
+        };
+
+        void UpdateCaption() => caption.Text = $"{label}   {slider.Value:0} px";
+
+        UpdateCaption();
+        slider.ValueChanged += (_, _) =>
+        {
+            UpdateCaption();
+            apply(slider.Value);
+        };
+        slider.LostMouseCapture += (_, _) => _onLayoutChanged(_category);
+        slider.KeyUp += (_, _) => _onLayoutChanged(_category);
+
+        var panel = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0, 2, 0, 4) };
+        panel.Children.Add(caption);
+        panel.Children.Add(slider);
+
+        var item = CreateMenuItem(string.Empty);
+        item.Header = panel;
+        item.StaysOpenOnClick = true;
+        MenuThemeProperties.SetHighlightBrush(item, Brushes.Transparent);
+        parent.Items.Add(item);
+    }
+
     private void AddMenuItem(ItemsControl parent, string header, Action handler, string? iconKey = null)
     {
         var item = CreateMenuItem(header, iconKey);
@@ -1679,9 +1734,9 @@ internal sealed class DesktopGroupWindow : Window
             {
                 var index = _category.Items.Count + _category.Categories.Count;
                 var usableWidth = _category.DesktopWidth - (PaddingX * 2);
-                var columns = Math.Max(1, (int)(usableWidth / (TileSize * _category.DesktopIconScale)));
-                newItem.DesktopIconX = PaddingX + ((index % columns) * TileSize);
-                newItem.DesktopIconY = PaddingY + ((index / columns) * TileSize);
+                var columns = Math.Max(1, (int)(usableWidth / (HStride * _category.DesktopIconScale)));
+                newItem.DesktopIconX = PaddingX + ((index % columns) * HStride);
+                newItem.DesktopIconY = PaddingY + ((index / columns) * VStride);
             }
 
             _category.Items.Add(newItem);
@@ -1884,6 +1939,22 @@ internal sealed class DesktopGroupWindow : Window
         _onLayoutChanged(_category);
     }
 
+    private void SetIconHGap(double value)
+    {
+        _category.IconHGap = (int)Math.Clamp(Math.Round(value), 10, 30);
+        FinishStructuralChange();
+        PopulateTiles();
+        _onLayoutChanged(_category);
+    }
+
+    private void SetIconVGap(double value)
+    {
+        _category.IconVGap = (int)Math.Clamp(Math.Round(value), 10, 30);
+        FinishStructuralChange();
+        PopulateTiles();
+        _onLayoutChanged(_category);
+    }
+
     private void ToggleCollapse()
     {
         SetCollapsed(!_category.IsCollapsed);
@@ -2024,8 +2095,8 @@ internal sealed class DesktopGroupWindow : Window
         {
             AddFolderTile(
                 folder,
-                folder.IconX ?? PaddingX + ((index % 3) * TileSize),
-                folder.IconY ?? PaddingY + ((index / 3) * TileSize));
+                folder.IconX ?? PaddingX + ((index % 3) * HStride),
+                folder.IconY ?? PaddingY + ((index / 3) * VStride));
             index++;
         }
 
@@ -2034,8 +2105,8 @@ internal sealed class DesktopGroupWindow : Window
             item.IsDesktopPinned = true;
             AddTile(
                 item,
-                item.DesktopIconX ?? PaddingX + ((index % 3) * TileSize),
-                item.DesktopIconY ?? PaddingY + ((index / 3) * TileSize));
+                item.DesktopIconX ?? PaddingX + ((index % 3) * HStride),
+                item.DesktopIconY ?? PaddingY + ((index / 3) * VStride));
             index++;
         }
 
@@ -2151,12 +2222,12 @@ internal sealed class DesktopGroupWindow : Window
         // in plain, unscaled TileSize units, or the transform would apply the scale
         // twice and blow the grid past the panel's actual width.
         var usableWidth = _category.DesktopWidth - (PaddingX * 2);
-        var columns = Math.Max(1, (int)(usableWidth / (TileSize * _category.DesktopIconScale)));
+        var columns = Math.Max(1, (int)(usableWidth / (HStride * _category.DesktopIconScale)));
         var index = 0;
         foreach (var entry in orderedEntries)
         {
-            var x = PaddingX + ((index % columns) * TileSize);
-            var y = PaddingY + ((index / columns) * TileSize);
+            var x = PaddingX + ((index % columns) * HStride);
+            var y = PaddingY + ((index / columns) * VStride);
             switch (entry)
             {
                 case LaunchItem item:
@@ -2572,10 +2643,10 @@ internal sealed class DesktopGroupWindow : Window
 
         var usableWidth = ActualWidth > 0 ? ActualWidth - (PaddingX * 2) : _category.DesktopWidth - (PaddingX * 2);
         var scale = _category.DesktopIconScale > 0 ? _category.DesktopIconScale : 1.0;
-        var columns = Math.Max(1, (int)(usableWidth / (TileSize * scale)));
+        var columns = Math.Max(1, (int)(usableWidth / (HStride * scale)));
 
-        var dropCol = Math.Max(0, (int)Math.Round((dropCanvasPoint.X - PaddingX) / TileSize));
-        var dropRow = Math.Max(0, (int)Math.Round((dropCanvasPoint.Y - PaddingY) / TileSize));
+        var dropCol = Math.Max(0, (int)Math.Round((dropCanvasPoint.X - PaddingX) / HStride));
+        var dropRow = Math.Max(0, (int)Math.Round((dropCanvasPoint.Y - PaddingY) / VStride));
         var targetSlotIndex = Math.Max(0, (dropRow * columns) + dropCol);
 
         var foldersToMove = entries.OfType<MenuCategory>().ToList();
@@ -2673,10 +2744,10 @@ internal sealed class DesktopGroupWindow : Window
 
         var usableWidth = ActualWidth > 0 ? ActualWidth - (PaddingX * 2) : _category.DesktopWidth - (PaddingX * 2);
         var scale = _category.DesktopIconScale > 0 ? _category.DesktopIconScale : 1.0;
-        var columns = Math.Max(1, (int)(usableWidth / (TileSize * scale)));
+        var columns = Math.Max(1, (int)(usableWidth / (HStride * scale)));
 
-        var dropCol = Math.Max(0, (int)Math.Round((canvasPoint.X - PaddingX) / TileSize));
-        var dropRow = Math.Max(0, (int)Math.Round((canvasPoint.Y - PaddingY) / TileSize));
+        var dropCol = Math.Max(0, (int)Math.Round((canvasPoint.X - PaddingX) / HStride));
+        var dropRow = Math.Max(0, (int)Math.Round((canvasPoint.Y - PaddingY) / VStride));
         var targetSlotIndex = Math.Max(0, (dropRow * columns) + dropCol);
 
         var foldersToMove = entries.OfType<MenuCategory>().ToList();
@@ -3220,14 +3291,14 @@ internal sealed class DesktopGroupWindow : Window
     private void ReflowGridDuringResize()
     {
         var usableWidth = _category.DesktopWidth - (PaddingX * 2);
-        var columns = Math.Max(1, (int)(usableWidth / (TileSize * _category.DesktopIconScale)));
+        var columns = Math.Max(1, (int)(usableWidth / (HStride * _category.DesktopIconScale)));
         var ordered = NameOrder();
 
         var index = 0;
         foreach (var entry in ordered)
         {
-            var x = PaddingX + ((index % columns) * TileSize);
-            var y = PaddingY + ((index / columns) * TileSize);
+            var x = PaddingX + ((index % columns) * HStride);
+            var y = PaddingY + ((index / columns) * VStride);
             switch (entry)
             {
                 case LaunchItem item:
@@ -3461,7 +3532,7 @@ internal sealed class DesktopGroupWindow : Window
             if (all.Count > 0)
             {
                 var usableWidth = _category.DesktopWidth - (PaddingX * 2);
-                var cols = Math.Max(1, (int)(usableWidth / (TileSize * _category.DesktopIconScale)));
+                var cols = Math.Max(1, (int)(usableWidth / (HStride * _category.DesktopIconScale)));
 
                 var currentIdx = _selectionAnchor is not null ? all.IndexOf(_selectionAnchor) : -1;
                 if (currentIdx < 0 && _selectedEntries.Count > 0)

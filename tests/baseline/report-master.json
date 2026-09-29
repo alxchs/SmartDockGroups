@@ -473,6 +473,8 @@
         "AreaOpacity": 1,
         "TitleOpacity": 1,
         "DisplayMode": "Panel",
+        "IconHGap": 10,
+        "IconVGap": 10,
         "IconArrangement": "None"
       }
     ],

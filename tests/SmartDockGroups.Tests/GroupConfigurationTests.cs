@@ -48,6 +48,8 @@ public sealed class GroupConfigurationTests : IDisposable
         group.TitleOpacity = 0.25;
         group.IsCollapsed = true;
         group.IsClosed = true;
+        group.IconHGap = 20;
+        group.IconVGap = 15;
         group.Items.Add(new LaunchItem
         {
             Name = "Notepad",
@@ -76,6 +78,8 @@ public sealed class GroupConfigurationTests : IDisposable
         Assert.Equal(0.25, reloaded.TitleOpacity);
         Assert.True(reloaded.IsCollapsed);
         Assert.True(reloaded.IsClosed);
+        Assert.Equal(20, reloaded.IconHGap);
+        Assert.Equal(15, reloaded.IconVGap);
 
         var item = Assert.Single(reloaded.Items);
         Assert.Equal("Notepad", item.Name);
