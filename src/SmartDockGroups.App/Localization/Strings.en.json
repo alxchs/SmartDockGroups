@@ -143,5 +143,8 @@
   "group.windowOrder": "Desktop window order",
   "group.bringAllToFront": "Bring all groups to front",
   "group.sendOthersToBack": "Send other groups to back",
-  "group.sendAllToBack": "Send all groups to back"
+  "group.sendAllToBack": "Send all groups to back",
+  "group.bringAllToThisMonitorCentered": "Bring all groups to this monitor (centered)",
+  "group.sendAllToMonitor": "Send all groups to Monitor {0} ({1}x{2})",
+  "group.sendAllToMonitorPrimary": "Send all groups to Monitor {0} (Primary, {1}x{2})"
 }

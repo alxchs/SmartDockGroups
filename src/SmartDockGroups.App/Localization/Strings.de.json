@@ -126,5 +126,8 @@
   "theme.shadowBlur": "Schattenweichzeichnung",
   "theme.shadowDepth": "Schattenabstand",
   "theme.shadowDirection": "Schattenrichtung (Grad)",
-  "theme.shadowOpacity": "Schattendeckkraft"
+  "theme.shadowOpacity": "Schattendeckkraft",
+  "group.bringAllToThisMonitorCentered": "Alle Gruppen zentriert auf diesen Monitor bringen",
+  "group.sendAllToMonitor": "Alle Gruppen an Monitor {0} senden ({1}x{2})",
+  "group.sendAllToMonitorPrimary": "Alle Gruppen an Monitor {0} senden (Hauptmonitor, {1}x{2})"
 }
