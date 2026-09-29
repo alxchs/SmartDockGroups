@@ -57,11 +57,17 @@ public sealed class MenuCategory : IMenuContainer
     public double? PanelX { get; set; }
     public double? PanelY { get; set; }
 
+    /// <summary>Extra horizontal gap (px, pre-zoom) added between icon columns beyond the base tile size. Range 10–30, default 10.</summary>
+    public int IconHGap { get; set; } = 10;
+
+    /// <summary>Extra vertical gap (px, pre-zoom) added between icon rows beyond the base tile size. Range 10–30, default 10.</summary>
+    public int IconVGap { get; set; } = 10;
+
     /// <summary>How this group's icons are kept laid out. See <see cref="IconArrangement"/>.</summary>
     public IconArrangement IconArrangement { get; set; } = IconArrangement.None;
 
     /// <summary>
-    /// Takes on another group's appearance — theme, opacities and backdrop —
+    /// Takes on another group's appearance — theme, opacities, backdrop and icon spacing —
     /// while leaving its own contents, position and size alone.
     /// </summary>
     public void CopyVisualFrom(MenuCategory source)
@@ -71,6 +77,8 @@ public sealed class MenuCategory : IMenuContainer
         TitleOpacity = source.TitleOpacity;
         DesktopBackgroundImagePath = source.DesktopBackgroundImagePath;
         DesktopIconScale = source.DesktopIconScale;
+        IconHGap = source.IconHGap;
+        IconVGap = source.IconVGap;
     }
 
     public MenuCategory Clone()
@@ -98,6 +106,8 @@ public sealed class MenuCategory : IMenuContainer
             DisplayMode = DisplayMode,
             PanelX = PanelX,
             PanelY = PanelY,
+            IconHGap = IconHGap,
+            IconVGap = IconVGap,
             IconArrangement = IconArrangement
         };
     }

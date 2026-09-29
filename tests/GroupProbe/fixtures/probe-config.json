@@ -52,6 +52,8 @@
       "AreaOpacity": 1.0,
       "TitleOpacity": 1.0,
       "DisplayMode": "Panel",
+      "IconHGap": 10,
+      "IconVGap": 10,
       "IconArrangement": "ByName"
     },
     {
@@ -88,6 +90,8 @@
       "AreaOpacity": 1.0,
       "TitleOpacity": 1.0,
       "DisplayMode": "Panel",
+      "IconHGap": 10,
+      "IconVGap": 10,
       "IconArrangement": "None"
     }
   ],
