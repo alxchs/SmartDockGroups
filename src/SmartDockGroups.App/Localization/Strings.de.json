@@ -113,7 +113,7 @@
   "item.standardMenu": "Standardmenü",
   "group.duplicate": "Gruppe duplizieren",
   "group.taskbarShortcut": "Verknüpfung in der Taskleiste erstellen",
-  "group.taskbarShortcutHint": "Verknüpfung erstellt. Ziehen Sie sie aus dem geöffneten Ordner auf die Taskleiste.",
+  "group.taskbarShortcutHint": "Gruppenverknüpfung im Startmenü erstellt (Ordner Smart Dock Groups). Zum Anheften: Rechtsklick → An Taskleiste anheften (unter Windows 11 unter \"Weitere Optionen anzeigen\"), oder den Gruppennamen in Start eingeben und das Ergebnis anheften.",
   "group.notFound": "Gruppe nicht gefunden.",
   "group.copySuffix": "{0} (Kopie)",
   "group.shareVisual": "Darstellung",

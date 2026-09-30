@@ -63,6 +63,14 @@ public partial class App : Application, IDesktopGroupCommands
             _configurationStore.Save(_configuration);
         }
 
+        foreach (var group in DesktopOrganizerService.AllDesktopGroups(_configuration))
+        {
+            if (group.Id is { } groupId)
+            {
+                _shortcutNames[groupId] = group.Name;
+            }
+        }
+
         _iconCache = new IconCacheService(ApplicationPaths.IconCacheDirectory);
 
         AppThemeService.Apply(_configuration.Behavior.AppTheme);
@@ -218,9 +226,23 @@ public partial class App : Application, IDesktopGroupCommands
         return new System.Drawing.Icon(stream, SystemInformation.SmallIconSize);
     }
 
+    private readonly Dictionary<string, string> _shortcutNames = new();
+
     private void OnDesktopGroupLayoutChanged(MenuCategory category)
     {
         _configurationStore!.Save(_configuration!);
+
+        // A renamed group renames its Start-menu shortcut (only if it has one). Checked on name
+        // change only: this callback fires for every move and resize as well.
+        if (category.Id is { } id
+            && (!_shortcutNames.TryGetValue(id, out var known) || !string.Equals(known, category.Name, StringComparison.Ordinal)))
+        {
+            _shortcutNames[id] = category.Name;
+            if (Environment.ProcessPath is { } exe)
+            {
+                TaskbarShortcutService.SyncName(category, exe);
+            }
+        }
     }
 
     private void RefreshDesktopGroups()
@@ -268,7 +290,7 @@ public partial class App : Application, IDesktopGroupCommands
         var exePath = Environment.ProcessPath ?? throw new InvalidOperationException("Unknown executable path.");
         var shortcut = TaskbarShortcutService.CreateGroupShortcut(source, exePath);
         TaskbarShortcutService.RevealInExplorer(shortcut);
-        _trayIcon?.ShowBalloonTip(5000, LocalizationService.Get("common.appName"), LocalizationService.Get("group.taskbarShortcutHint"), ToolTipIcon.Info);
+        _trayIcon?.ShowBalloonTip(10000, LocalizationService.Get("common.appName"), LocalizationService.Get("group.taskbarShortcutHint"), ToolTipIcon.Info);
     }
 
     void IDesktopGroupCommands.Duplicate(MenuCategory source)
@@ -366,6 +388,7 @@ public partial class App : Application, IDesktopGroupCommands
 
     private void OnDesktopGroupDeleteRequested(MenuCategory category)
     {
+        TaskbarShortcutService.Remove(category);
         DesktopOrganizerService.RemoveCategory(_configuration!, category);
         _configurationStore!.Save(_configuration!);
         RefreshDesktopGroups();

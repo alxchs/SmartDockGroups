@@ -79,6 +79,7 @@ internal static class LoteVerifier
             Step("newGroup", CheckNewGroup);
             Step("shareOpacity", CheckShareOpacity);
             Step("importShortcuts", CheckImportShortcuts);
+            Step("taskbarShortcut", CheckTaskbarShortcut);
         }
         finally
         {
@@ -600,6 +601,98 @@ internal static class LoteVerifier
         result["importedItems"] = new JsonArray(GroupItems(ImportedGroupName).Select(i => (JsonNode)i["Name"]!.GetValue<string>()).ToArray());
         Button(settingsRoot, "Close")?.Invoke();
         return result;
+    }
+
+    /// <summary>
+    /// "Create taskbar shortcut" on the group made by <see cref="CheckNewGroup"/>: the file lands in the
+    /// Start-menu folder (the isolated instance's own StartMenu folder here), carries the group's own
+    /// AppUserModelID, follows a rename and disappears with the group.
+    /// </summary>
+    private static JsonNode CheckTaskbarShortcut()
+    {
+        var folder = Path.Combine(_data, "StartMenu");
+        var hwnd = Window(NewGroupName);
+        BringTop(hwnd);
+        Win32.GetWindowRect(hwnd, out var rect);
+        var header = new System.Drawing.Point(rect.Left + 60, rect.Top + 14);
+        var explorersBefore = Process.GetProcessesByName("explorer").Select(p => p.Id).ToHashSet();
+        InvokeFromMenu(header, "Create taskbar shortcut");
+        Thread.Sleep(2500);
+        var created = Directory.Exists(folder) ? Directory.GetFiles(folder, "*.lnk").Select(Path.GetFileName).ToArray() : [];
+        var result = new JsonObject
+        {
+            ["filesAfterCreate"] = new JsonArray(created.Select(f => (JsonNode)f!).ToArray()),
+            ["appUserModelId"] = created.Length == 1 ? ReadAppUserModelId(Path.Combine(folder, created[0]!)) : null
+        };
+
+        CloseRevealWindow();
+
+        var before = Win32.VisibleWindowsOf(_pid).ToHashSet();
+        InvokeFromMenu(header, "Rename");
+        var prompt = WaitNewWindow(before, 5);
+        if (prompt != IntPtr.Zero)
+        {
+            var root = AutomationElement.FromHandle(prompt);
+            var box = root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit));
+            ((ValuePattern)box.GetCurrentPattern(ValuePattern.Pattern)).SetValue("Renomeado no teste");
+            Button(root, "OK")?.Invoke();
+            Thread.Sleep(1200);
+        }
+
+        result["filesAfterRename"] = new JsonArray(Directory.GetFiles(folder, "*.lnk").Select(f => (JsonNode)Path.GetFileName(f)!).ToArray());
+
+        hwnd = Window("Renomeado no teste");
+        before = Win32.VisibleWindowsOf(_pid).ToHashSet();
+        InvokeFromMenu(header, "Remove group");
+        var box2 = WaitNewWindow(before, 5);
+        if (box2 != IntPtr.Zero)
+        {
+            Button(AutomationElement.FromHandle(box2), "Yes")?.Invoke();
+            Thread.Sleep(1200);
+        }
+
+        result["groupWindowGone"] = Window("Renomeado no teste") == IntPtr.Zero;
+        result["filesAfterRemove"] = new JsonArray(Directory.GetFiles(folder, "*.lnk").Select(f => (JsonNode)Path.GetFileName(f)!).ToArray());
+        return result;
+    }
+
+    /// <summary>The Explorer window "Create taskbar shortcut" opens on the isolated StartMenu folder.</summary>
+    private static void CloseRevealWindow()
+    {
+        var type = Type.GetTypeFromProgID("Shell.Application");
+        if (type is null)
+        {
+            return;
+        }
+
+        dynamic shell = Activator.CreateInstance(type)!;
+        foreach (var window in shell.Windows())
+        {
+            try
+            {
+                string location = window.LocationURL;
+                if (location.Contains("StartMenu", StringComparison.OrdinalIgnoreCase))
+                {
+                    window.Quit();
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    private static string? ReadAppUserModelId(string shortcutPath)
+    {
+        var type = Type.GetTypeFromProgID("Shell.Application");
+        if (type is null)
+        {
+            return null;
+        }
+
+        dynamic shell = Activator.CreateInstance(type)!;
+        dynamic item = shell.Namespace(Path.GetDirectoryName(shortcutPath)).ParseName(Path.GetFileName(shortcutPath));
+        return item.ExtendedProperty("System.AppUserModel.ID") as string;
     }
 
     // ───────────────────────────── helpers

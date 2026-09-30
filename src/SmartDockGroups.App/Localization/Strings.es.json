@@ -113,7 +113,7 @@
   "item.standardMenu": "Menú estándar",
   "group.duplicate": "Duplicar grupo",
   "group.taskbarShortcut": "Crear acceso directo en la barra de tareas",
-  "group.taskbarShortcutHint": "Acceso directo creado. Arrástralo desde la carpeta abierta a la barra de tareas.",
+  "group.taskbarShortcutHint": "Acceso directo del grupo creado en el menú Inicio (carpeta Smart Dock Groups). Para anclarlo: clic derecho → Anclar a la barra de tareas (en Windows 11, en \"Mostrar más opciones\"), o escriba el nombre del grupo en Inicio y ancle el resultado.",
   "group.notFound": "Grupo no encontrado.",
   "group.copySuffix": "{0} (copia)",
   "group.shareVisual": "Apariencia",

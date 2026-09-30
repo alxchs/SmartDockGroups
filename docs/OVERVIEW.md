@@ -309,12 +309,31 @@ funciona de fora desta rede, sem custo.
     Enter abriria ganha o destaque cheio e é rolado para a vista, e todos os
     outros ficam esmaecidos (opacidade 0,22). Ao fechar a busca, seleção e
     "recortado" voltam ao normal.
-- **Atalho de grupo na barra de tarefas** (v1.1.1.0). O item **"Criar atalho na barra de
-  tarefas"** do menu do grupo (`IDesktopGroupCommands.CreateTaskbarShortcut`) grava
-  `%AppData%\SmartDockGroups\GroupShortcuts\<nome> (<6 primeiros do id>).lnk`
-  (`TaskbarShortcutService`, via `WScript.Shell`), com destino no próprio
-  `SmartDockGroups.App.exe`, argumento `--desktop-action=focus-group:<id>` e o ícone do app, e abre o
-  Explorer com o arquivo selecionado para o usuário arrastá-lo à barra. Clicar no atalho reusa
+- **Atalho de grupo na barra de tarefas** (v1.1.1.0; local e ID revistos em 2026-09-30). O item
+  **"Criar atalho na barra de tarefas"** do menu do grupo (`IDesktopGroupCommands.CreateTaskbarShortcut`)
+  grava `<Menu Iniciar do usuário>\Programs\Smart Dock Groups\<nome do grupo>.lnk`
+  (`TaskbarShortcutService`; a pasta vem do known folder `Programs`, nunca de um caminho fixo; é a
+  mesma pasta onde o instalador põe o atalho do app), com destino no próprio
+  `SmartDockGroups.App.exe`, argumento `--desktop-action=focus-group:<id>`, o ícone do app e um
+  **AppUserModelID próprio por grupo** (`SmartDockGroups.Group.<id>`, gravado via `IPropertyStore`).
+  Abre o Explorer com o arquivo selecionado e um balão explica: clique direito → Fixar na barra de
+  tarefas (no Windows 11, em "Mostrar mais opções" ou com Shift+clique direito), ou digitar o nome
+  do grupo no Iniciar e fixar o resultado. O atalho é achado pelo argumento (o `Id`), não pelo nome:
+  renomear o grupo renomeia o arquivo, e remover o grupo o apaga. O nome leva o `Id` curto só
+  quando outro grupo já usa o mesmo nome.
+  **Por que o app não fixa sozinho** (medido em 2026-09-30, Windows 11 26H2, build 26340):
+  (1) `User Pinned\TaskBar` não é a barra: havia um `Google Chrome.lnk` ali que não estava fixado;
+  a barra é o valor binário `Taskband\Favorites`. (2) A interface de fixar do shell
+  (`IPinnedList3::Modify`, validada antes por leitura da lista real de fixados) devolveu `S_OK` e não
+  mudou nada: fora do Explorer o pedido é ignorado. (3) O verbo "Pin to taskbar" nem é listado para
+  programas (nem para o Bloco de Notas); só "Unpin" aparece. Os caminhos restantes seriam se passar
+  pelo Explorer ou escrever o blob não documentado, e foram recusados.
+  **O que foi provado no Explorer de verdade**: Shift+clique direito no atalho de grupo mostrou
+  "Pin to taskbar"; ao clicar, o **próprio Windows** copiou o `.lnk` para `User Pinned\TaskBar` e a
+  lista de fixados passou de 24 para 25; com esse fixado, um segundo atalho de grupo **continuou**
+  oferecendo "Pin to taskbar" (sem o AppUserModelID próprio, um atalho para o mesmo `.exe` de um
+  programa fixado aparece como "Unpin from taskbar" — controle medido com o VS Code); desafixar
+  devolveu a lista e o `Favorites` exatamente ao estado inicial (24 itens, 19.703 bytes). Clicar no atalho reusa
   o caminho que já existia: o processo novo não obtém o mutex, manda a ação pelo pipe
   `SmartDockGroups.DesktopAction` e sai; a instância aberta trata em `App.FocusGroup`
   (fechado → abre e grava; recolhido → expande; depois `DesktopGroupWindow.BringForwardAndPulse`:
@@ -440,7 +459,7 @@ funciona de fora desta rede, sem custo.
   um espaço vazio), dica com o caminho e o comando "Localizar atalho
   perdido…". Os arquivos adotados nunca são apagados pelo app.
 - **`ApplicationPaths`** — `SMARTDOCKGROUPS_DATA_DIR` aponta a pasta de dados
-  para outro lugar; essa instância também usa mutex/pipe próprios e não
+  para outro lugar (e os atalhos de grupo vão para `<dados>\StartMenu`, não para o Iniciar real); essa instância também usa mutex/pipe próprios e não
   registra o menu da área de trabalho, então roda ao lado da instância real
   sem tocar na configuração, no registro nem na trava de instância única. É
   como a sonda testa o app (ver "Testes").

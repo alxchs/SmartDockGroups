@@ -113,7 +113,7 @@
   "item.standardMenu": "標準メニュー",
   "group.duplicate": "グループを複製",
   "group.taskbarShortcut": "タスクバーにショートカットを作成",
-  "group.taskbarShortcutHint": "ショートカットを作成しました。開いたフォルダーからタスクバーにドラッグしてください。",
+  "group.taskbarShortcutHint": "グループのショートカットをスタート メニュー (Smart Dock Groups フォルダー) に作成しました。ピン留めするには: 右クリック → タスク バーにピン留めする (Windows 11 では [その他のオプションを確認])、またはスタートでグループ名を入力して結果をピン留めします。",
   "group.notFound": "グループが見つかりません。",
   "group.copySuffix": "{0}（コピー）",
   "group.shareVisual": "外観",

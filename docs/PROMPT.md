@@ -725,3 +725,19 @@ percorrido por mouse, teclado e UI Automation (`GroupProbe --verify-lote`), no e
 **publicado** self-contained, com cache de ícones copiado e vazio; a sonda de caracterização
 com oráculo `IDENTICO` e comparação master × branch explicando cada divergência; capturas só
 recortadas, e nenhuma com os atalhos pessoais do usuário no repositório público.
+
+## 29. "Criar atalho na barra de tarefas" na pasta certa
+
+O atalho do grupo está indo para `%AppData%\SmartDockGroups\GroupShortcuts`. Ele deveria ir para a
+pasta dos ícones que aparecem na barra (`...\Quick Launch\User Pinned\TaskBar`), achada em qualquer
+computador sem caminho fixo.
+
+*Resposta, medida antes de mudar:* essa pasta não é a barra — o Windows a preenche **ao fixar** (a
+barra é o valor `Taskband\Favorites`), e fora do Explorer o Windows ignora qualquer pedido de fixar
+(`IPinnedList3::Modify` devolve `S_OK` sem efeito; o verbo de fixar nem é listado). Então: grave o
+atalho no **Menu Iniciar do usuário** (known folder `Programs`, pasta "Smart Dock Groups"), com um
+**AppUserModelID próprio por grupo** para cada atalho ser fixável independentemente; abra o Explorer
+nele com a instrução "clique direito → Fixar na barra de tarefas"; mantenha o arquivo em dia quando o
+grupo for renomeado ou removido. Prove fixando pelo menu do Explorer de verdade, conferindo que o
+Windows copia o `.lnk` para `User Pinned\TaskBar`, que um segundo grupo continua fixável, e desafixe
+voltando a barra exatamente ao estado anterior.

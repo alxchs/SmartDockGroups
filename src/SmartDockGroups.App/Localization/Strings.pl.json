@@ -113,7 +113,7 @@
   "item.standardMenu": "Menu standardowe",
   "group.duplicate": "Duplikuj grupę",
   "group.taskbarShortcut": "Utwórz skrót na pasku zadań",
-  "group.taskbarShortcutHint": "Skrót utworzony. Przeciągnij go z otwartego folderu na pasek zadań.",
+  "group.taskbarShortcutHint": "Skrót grupy utworzono w menu Start (folder Smart Dock Groups). Aby przypiąć: kliknij prawym → Przypnij do paska zadań (w Windows 11 w \"Pokaż więcej opcji\") albo wpisz nazwę grupy w Start i przypnij wynik.",
   "group.notFound": "Nie znaleziono grupy.",
   "group.copySuffix": "{0} (kopia)",
   "group.shareVisual": "Wygląd",

@@ -119,7 +119,7 @@
   "item.standardMenu": "Standard menu",
   "group.duplicate": "Duplicate group",
   "group.taskbarShortcut": "Create taskbar shortcut",
-  "group.taskbarShortcutHint": "Shortcut created. Drag it from the folder that just opened to the taskbar.",
+  "group.taskbarShortcutHint": "Group shortcut created in the Start menu (Smart Dock Groups folder). To pin it: right-click it → Pin to taskbar (on Windows 11, under \"Show more options\"), or type the group's name in Start and pin the result.",
   "group.notFound": "Group not found.",
   "group.copySuffix": "{0} (copy)",
   "group.shareVisual": "Appearance",

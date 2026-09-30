@@ -30,7 +30,15 @@ internal static class ApplicationPaths
 
     public static string ConfigFilePath { get; } = Path.Combine(ProductDataFolder, "config.json");
     public static string IconCacheDirectory { get; } = Path.Combine(ProductDataFolder, "IconCache");
-    public static string GroupShortcutsDirectory { get; } = Path.Combine(ProductDataFolder, "GroupShortcuts");
+    /// <summary>
+    /// Where "Create taskbar shortcut" writes a group's shortcut: a "Smart Dock Groups" folder in the
+    /// user's Start menu (the Programs known folder, resolved by Windows on any machine), so the group
+    /// can be found in Start and pinned from there. An isolated instance keeps it in its own data folder.
+    /// Until 2026-09-30 this was %AppData%\SmartDockGroups\GroupShortcuts.
+    /// </summary>
+    public static string GroupShortcutsDirectory { get; } = DataFolderOverride is not null
+        ? Path.Combine(ProductDataFolder, "StartMenu")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Smart Dock Groups");
 
     /// <summary>The app's own copies of the .lnk/.url files placed in groups. See <see cref="ShortcutStore"/>.</summary>
     public static string OwnedShortcutsDirectory { get; } = Path.Combine(ProductDataFolder, "Shortcuts");

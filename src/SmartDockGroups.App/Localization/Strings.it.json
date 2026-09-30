@@ -113,7 +113,7 @@
   "item.standardMenu": "Menu standard",
   "group.duplicate": "Duplica gruppo",
   "group.taskbarShortcut": "Crea collegamento sulla barra delle applicazioni",
-  "group.taskbarShortcutHint": "Collegamento creato. Trascinalo dalla cartella aperta sulla barra delle applicazioni.",
+  "group.taskbarShortcutHint": "Collegamento del gruppo creato nel menu Start (cartella Smart Dock Groups). Per aggiungerlo: clic destro → Aggiungi alla barra delle applicazioni (in Windows 11, in \"Mostra altre opzioni\"), oppure digita il nome del gruppo in Start e aggiungi il risultato.",
   "group.notFound": "Gruppo non trovato.",
   "group.copySuffix": "{0} (copia)",
   "group.shareVisual": "Aspetto",

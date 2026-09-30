@@ -119,7 +119,7 @@
   "item.standardMenu": "Menu padrão",
   "group.duplicate": "Duplicar grupo",
   "group.taskbarShortcut": "Criar atalho na barra de tarefas",
-  "group.taskbarShortcutHint": "Atalho criado. Arraste-o da pasta que abriu para a barra de tarefas.",
+  "group.taskbarShortcutHint": "Atalho do grupo criado no Menu Iniciar (pasta Smart Dock Groups). Para fixar: clique com o botão direito nele → Fixar na barra de tarefas (no Windows 11, em \"Mostrar mais opções\"), ou digite o nome do grupo no Iniciar e fixe o resultado.",
   "group.notFound": "Grupo não encontrado.",
   "group.copySuffix": "{0} (cópia)",
   "group.shareVisual": "Aparência",
