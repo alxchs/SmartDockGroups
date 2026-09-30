@@ -153,5 +153,14 @@
   "settings.importShortcutsHint": "\"Verknüpfungen importieren\" öffnet einen Ordner: beliebig viele auswählen (Strg+A wählt alle) und die Zielgruppe wählen. Eine JSON-Konfiguration ersetzt beim Speichern alle Gruppen.",
   "settings.importTargetPrompt": "{0} Verknüpfung(en) zur Gruppe hinzufügen:",
   "settings.importNewGroup": "(Neue Gruppe...)",
-  "settings.importDone": "{0} Verknüpfung(en) zur Gruppe \"{1}\" hinzugefügt."
+  "settings.importDone": "{0} Verknüpfung(en) zur Gruppe \"{1}\" hinzugefügt.",
+  "group.dockAll": "Alle Gruppen andocken",
+  "group.undockAll": "Gruppen abdocken",
+  "group.bringAllToFront": "Alle Gruppen nach vorne holen",
+  "group.sendAllToBack": "Alle Gruppen in den Hintergrund",
+  "group.sendOthersToBack": "Andere Gruppen in den Hintergrund",
+  "desktop.openAllGroups": "Alle Desktopgruppen öffnen",
+  "desktop.closeAllGroups": "Alle Desktopgruppen schließen",
+  "desktop.groupsMenu": "Desktopgruppen",
+  "group.windowOrder": "Reihenfolge auf dem Desktop"
 }

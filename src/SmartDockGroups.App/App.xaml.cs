@@ -142,7 +142,10 @@ public partial class App : Application, IDesktopGroupCommands
         var startupAction = DesktopContextMenuRegistration.ParseAction(e.Args);
         if (startupAction is not null)
         {
-            HandleDesktopAction(startupAction);
+            // The app was not running: it has just been brought up by this verb. Act once the
+            // groups have been shown and laid out, or a "bring to front" / "focus" would act on
+            // windows that do not exist on screen yet.
+            Dispatcher.BeginInvoke(() => HandleDesktopAction(startupAction), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
     }
 
@@ -184,6 +187,19 @@ public partial class App : Application, IDesktopGroupCommands
                 _desktopOrganizer?.CloseAllGroups(_configuration!);
                 SaveAndReloadGroups();
                 break;
+            case DesktopContextMenuRegistration.BringAllToFrontAction:
+                DesktopGroupWindow.BringAllGroupsToFront();
+                _desktopOrganizer?.RestoreMinimizedGroups();
+                break;
+            case DesktopContextMenuRegistration.SendAllToBackAction:
+                DesktopGroupWindow.SendAllToBack();
+                break;
+            case DesktopContextMenuRegistration.DockAllAction:
+                DockAllFromOutside();
+                break;
+            case DesktopContextMenuRegistration.UndockAllAction:
+                _desktopOrganizer?.Undock();
+                break;
             case DesktopContextMenuRegistration.ToggleCollapseAllAction:
                 _desktopOrganizer?.ToggleCollapseAll();
                 break;
@@ -199,8 +215,29 @@ public partial class App : Application, IDesktopGroupCommands
         }
     }
 
+    /// <summary>
+    /// Docking from the desktop or tray menu has no group that was clicked: the stack starts
+    /// where the topmost-left open group is.
+    /// </summary>
+    private void DockAllFromOutside()
+    {
+        var anchor = DesktopOrganizerService.AllDesktopGroups(_configuration!)
+            .Where(group => !group.IsClosed)
+            .OrderBy(group => group.DesktopY)
+            .ThenBy(group => group.DesktopX)
+            .FirstOrDefault();
+        if (anchor is not null)
+        {
+            _desktopOrganizer?.Dock(anchor);
+        }
+    }
+
     private void SetAllGroupsDisplayMode(DesktopGroupDisplayMode mode)
     {
+        // A docked group is always a title bar; changing every group's style undocks first,
+        // so the styles apply to the groups as they were.
+        _desktopOrganizer?.Undock();
+
         foreach (var group in DesktopOrganizerService.AllDesktopGroups(_configuration!))
         {
             group.DisplayMode = mode;
@@ -260,6 +297,9 @@ public partial class App : Application, IDesktopGroupCommands
         _configurationStore!.Save(_configuration!);
         RefreshDesktopGroups();
         _desktopOrganizer!.ReloadVisuals(_configuration!);
+
+        // Rebuilt windows come back at their saved sizes; the stack puts them in their slots again.
+        _desktopOrganizer.RelayoutDockWhenReady();
     }
 
     private void FocusGroup(string groupId)
@@ -381,6 +421,26 @@ public partial class App : Application, IDesktopGroupCommands
         SaveAndReloadGroups();
     }
 
+    bool IDesktopGroupCommands.IsDocked => _desktopOrganizer?.IsDocked == true;
+
+    void IDesktopGroupCommands.ToggleDock(MenuCategory anchor)
+    {
+        if (_desktopOrganizer!.IsDocked)
+        {
+            _desktopOrganizer.Undock();
+        }
+        else
+        {
+            _desktopOrganizer.Dock(anchor);
+        }
+    }
+
+    void IDesktopGroupCommands.DockToggleExpanded(MenuCategory member) => _desktopOrganizer?.ToggleDockExpanded(member);
+
+    void IDesktopGroupCommands.DockMovedTo(MenuCategory member, double left, double top) => _desktopOrganizer?.DockMovedTo(member, left, top);
+
+    void IDesktopGroupCommands.MoveDockInto(Rect workArea) => _desktopOrganizer?.MoveDockInto(workArea);
+
     void IDesktopGroupCommands.OpenSettings()
     {
         OpenSettingsWindow();
@@ -468,7 +528,25 @@ public partial class App : Application, IDesktopGroupCommands
                 SaveAndReloadGroups();
             },
             StartupRegistration.SetEnabled,
-            Shutdown);
+            Shutdown,
+            () =>
+            {
+                DesktopGroupWindow.BringAllGroupsToFront();
+                _desktopOrganizer.RestoreMinimizedGroups();
+            },
+            DesktopGroupWindow.SendAllToBack,
+            _desktopOrganizer.IsDocked,
+            () =>
+            {
+                if (_desktopOrganizer.IsDocked)
+                {
+                    _desktopOrganizer.Undock();
+                }
+                else
+                {
+                    DockAllFromOutside();
+                }
+            });
 
         var cursorPosition = ToDeviceIndependentPoint(screenPoint);
 

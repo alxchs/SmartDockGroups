@@ -153,5 +153,14 @@
   "settings.importShortcutsHint": "\"Importuj skróty\" otwiera folder: zaznacz dowolną liczbę skrótów (Ctrl+A zaznacza wszystkie) i wybierz grupę docelową. Konfiguracja JSON zastępuje wszystkie grupy po kliknięciu Zapisz.",
   "settings.importTargetPrompt": "Dodaj {0} skrót(ów) do grupy:",
   "settings.importNewGroup": "(Nowa grupa...)",
-  "settings.importDone": "Dodano {0} skrót(ów) do grupy \"{1}\"."
+  "settings.importDone": "Dodano {0} skrót(ów) do grupy \"{1}\".",
+  "group.dockAll": "Zadokuj wszystkie grupy",
+  "group.undockAll": "Oddokuj grupy",
+  "group.bringAllToFront": "Przenieś wszystkie grupy na wierzch",
+  "group.sendAllToBack": "Przenieś wszystkie grupy na spód",
+  "group.sendOthersToBack": "Przenieś pozostałe grupy na spód",
+  "desktop.openAllGroups": "Otwórz wszystkie grupy pulpitu",
+  "desktop.closeAllGroups": "Zamknij wszystkie grupy pulpitu",
+  "desktop.groupsMenu": "Grupy pulpitu",
+  "group.windowOrder": "Kolejność na pulpicie"
 }

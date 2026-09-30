@@ -10,6 +10,9 @@ public sealed class LauncherConfiguration : IMenuContainer
     /// <summary>The non-colour look new groups start with. See <see cref="Models.GroupDefaults"/>.</summary>
     public GroupDefaults GroupDefaults { get; set; } = new();
 
+    /// <summary>"Dock all groups" and what undocking restores. See <see cref="DockState"/>.</summary>
+    public DockState Dock { get; set; } = new();
+
     public LauncherConfiguration Clone()
     {
         return new LauncherConfiguration
@@ -18,7 +21,8 @@ public sealed class LauncherConfiguration : IMenuContainer
             Categories = [.. Categories.Select(category => category.Clone())],
             Theme = Theme.Clone(),
             Behavior = Behavior.Clone(),
-            GroupDefaults = GroupDefaults.Clone()
+            GroupDefaults = GroupDefaults.Clone(),
+            Dock = Dock.Clone()
         };
     }
 
@@ -31,6 +35,7 @@ public sealed class LauncherConfiguration : IMenuContainer
         Theme = source.Theme.Clone();
         Behavior = source.Behavior.Clone();
         GroupDefaults = source.GroupDefaults.Clone();
+        Dock = source.Dock.Clone();
     }
 
     public static LauncherConfiguration CreateDefault()

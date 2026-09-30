@@ -30,4 +30,19 @@ internal interface IDesktopGroupCommands
 
     /// <summary>Opens the app's global settings — reachable from any group, not just the tray.</summary>
     void OpenSettings();
+
+    /// <summary>True while the groups are docked in one stack.</summary>
+    bool IsDocked { get; }
+
+    /// <summary>Docks every open group into a stack starting where <paramref name="anchor"/> is, or undocks them all.</summary>
+    void ToggleDock(MenuCategory anchor);
+
+    /// <summary>Opens this docked group (closing whichever was open), or closes it when it is the open one.</summary>
+    void DockToggleExpanded(MenuCategory member);
+
+    /// <summary>The user dragged a docked group to here: the whole stack follows.</summary>
+    void DockMovedTo(MenuCategory member, double left, double top);
+
+    /// <summary>Carries the whole stack into a monitor's work area (the "all groups to monitor" commands).</summary>
+    void MoveDockInto(System.Windows.Rect workArea);
 }

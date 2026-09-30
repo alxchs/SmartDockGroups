@@ -36,7 +36,11 @@ internal static class TrayMenuBuilder
         Action closeAllGroups,
         Action<MenuCategory> toggleGroup,
         Action<bool> setStartWithWindows,
-        Action exit)
+        Action exit,
+        Action bringAllToFront,
+        Action sendAllToBack,
+        bool isDocked,
+        Action toggleDock)
     {
         var theme = configuration.Theme;
         var menu = new ContextMenu
@@ -100,6 +104,19 @@ internal static class TrayMenuBuilder
         ApplyMenuItemAppearance(gatherAllItem, theme, theme, "IconGather");
         gatherAllItem.Click += (_, _) => gatherAll();
         menu.Items.Add(gatherAllItem);
+
+        foreach (var (key, action, icon) in new (string, Action, string)[]
+        {
+            ("group.bringAllToFront", bringAllToFront, "IconUp"),
+            ("group.sendAllToBack", sendAllToBack, "IconDown"),
+            (isDocked ? "group.undockAll" : "group.dockAll", toggleDock, "IconStylePanel")
+        })
+        {
+            var item = new MenuItem { Header = LocalizationService.Get(key), IsEnabled = hasOpenGroups };
+            ApplyMenuItemAppearance(item, theme, theme, icon);
+            item.Click += (_, _) => action();
+            menu.Items.Add(item);
+        }
 
         menu.Items.Add(BuildSeparator(theme));
 

@@ -153,5 +153,14 @@
   "settings.importShortcutsHint": "\"Importar accesos directos\" abre una carpeta: seleccione los que quiera (Ctrl+A selecciona todos) y elija el grupo que los recibirá. La configuración JSON reemplaza todos los grupos al hacer clic en Guardar.",
   "settings.importTargetPrompt": "Añadir {0} acceso(s) directo(s) al grupo:",
   "settings.importNewGroup": "(Nuevo grupo...)",
-  "settings.importDone": "{0} acceso(s) directo(s) añadido(s) al grupo \"{1}\"."
+  "settings.importDone": "{0} acceso(s) directo(s) añadido(s) al grupo \"{1}\".",
+  "group.dockAll": "Acoplar todos los grupos",
+  "group.undockAll": "Desacoplar grupos",
+  "group.bringAllToFront": "Traer todos los grupos al frente",
+  "group.sendAllToBack": "Enviar todos los grupos al fondo",
+  "group.sendOthersToBack": "Enviar los demás grupos al fondo",
+  "desktop.openAllGroups": "Abrir todos los grupos del escritorio",
+  "desktop.closeAllGroups": "Cerrar todos los grupos del escritorio",
+  "desktop.groupsMenu": "Grupos del escritorio",
+  "group.windowOrder": "Orden en el escritorio"
 }

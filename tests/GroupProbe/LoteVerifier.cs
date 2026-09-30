@@ -34,7 +34,14 @@ internal static class LoteVerifier
     /// <summary>"Instalação limpa": start without the user's icon cache instead of a copy of it ("Upgrade").</summary>
     public static bool CleanCache { get; set; }
 
+    /// <summary>Runs only <see cref="CheckMenuEdges"/>.</summary>
+    public static bool OnlyMenuEdges { get; set; }
+
+    /// <summary>Runs only <see cref="CheckDock"/>.</summary>
+    public static bool OnlyDock { get; set; }
+
     private static string _data = "";
+    private static Process? _current;
     private static string _out = "";
     private static uint _pid;
     private static readonly JsonObject Report = new();
@@ -57,7 +64,8 @@ internal static class LoteVerifier
 
         var start = new ProcessStartInfo(exe) { UseShellExecute = false };
         start.Environment["SMARTDOCKGROUPS_DATA_DIR"] = _data;
-        using var app = Process.Start(start) ?? throw new InvalidOperationException("app did not start");
+        var app = Process.Start(start) ?? throw new InvalidOperationException("app did not start");
+        _current = app;
         _pid = (uint)app.Id;
         Log($"started pid {_pid} with data {_data}");
 
@@ -65,6 +73,19 @@ internal static class LoteVerifier
         {
             WaitFor(() => Window(FreeGroup) != IntPtr.Zero && Window("Dev Apps") != IntPtr.Zero, 40, "group windows");
             Thread.Sleep(3000);
+
+            if (OnlyDock)
+            {
+                Step("dock", () => CheckDock(exe, app));
+                return 0;
+            }
+
+            if (OnlyMenuEdges)
+            {
+                Step("paste", CheckPaste);
+                Step("menuEdges", CheckMenuEdges);
+                return 0;
+            }
 
             Step("repair", CheckRepair);
             Step("captures", CaptureUserGroups);
@@ -85,8 +106,8 @@ internal static class LoteVerifier
         {
             try
             {
-                app.Kill();
-                app.WaitForExit(5000);
+                _current?.Kill();
+                _current?.WaitForExit(5000);
             }
             catch (InvalidOperationException)
             {
@@ -693,6 +714,342 @@ internal static class LoteVerifier
         dynamic shell = Activator.CreateInstance(type)!;
         dynamic item = shell.Namespace(Path.GetDirectoryName(shortcutPath)).ParseName(Path.GetFileName(shortcutPath));
         return item.ExtendedProperty("System.AppUserModel.ID") as string;
+    }
+
+    /// <summary>
+    /// Puts "Livre (teste)" against each corner of each monitor's work area (physical pixels, set
+    /// with SetWindowPos) and records where the header menu, a submenu, a sub-submenu and the "…"
+    /// button's menu open — each checked against the work area of the monitor the click was on.
+    /// </summary>
+    private static JsonNode CheckMenuEdges()
+    {
+        var hwnd = Window(FreeGroup);
+        var result = new JsonArray();
+        var screens = System.Windows.Forms.Screen.AllScreens;
+        foreach (var screen in screens)
+        {
+            var wa = screen.WorkingArea;
+            foreach (var corner in new[] { "TL", "TR", "BL", "BR" })
+            {
+                Win32.GetWindowRect(hwnd, out var r0);
+                var x = corner.EndsWith('L') ? wa.Left : wa.Right - r0.Width;
+                var y = corner.StartsWith('T') ? wa.Top : wa.Bottom - r0.Height;
+                Win32.SetWindowPos(hwnd, new IntPtr(-1), x, y, 0, 0, 0x0001 | 0x0010);
+                Thread.Sleep(900);
+                Win32.GetWindowRect(hwnd, out var rect);
+                var label = $"mon{Array.IndexOf(screens, screen) + 1}{(screen.Primary ? "p" : "")}-{corner}";
+                var entry = new JsonObject
+                {
+                    ["case"] = label,
+                    ["workArea"] = $"{wa.Left},{wa.Top},{wa.Right},{wa.Bottom}",
+                    ["window"] = $"{rect.Left},{rect.Top},{rect.Right},{rect.Bottom}"
+                };
+
+                // Header, on the side facing away from the header buttons.
+                var click = new System.Drawing.Point(corner.EndsWith('L') ? rect.Left + 60 : rect.Right - 170, rect.Top + 14);
+                var (popup, menu) = OpenMenu(click.X, click.Y);
+                entry["headerMenu"] = Describe(popup, wa);
+                if (menu is not null && FindItem(menu, "Appearance") is { } look)
+                {
+                    ((ExpandCollapsePattern)look.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+                    Thread.Sleep(600);
+                    var sub = NewestPopup(popup);
+                    entry["submenu"] = Describe(sub, wa);
+                    if (FindItem(look, "Share with") is { } share)
+                    {
+                        ((ExpandCollapsePattern)share.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+                        Thread.Sleep(600);
+                        entry["subSubmenu"] = Describe(NewestPopup(popup, sub), wa);
+                    }
+
+                    if (sub != IntPtr.Zero)
+                    {
+                        Win32.TryCapture(popup, Shot($"borda-{label}-menu"));
+                    }
+                }
+
+                CloseMenus();
+
+                // An icon's menu, and its tall "Group ▸" submenu.
+                if (FindText(hwnd, "WinDirStat") is { } caption)
+                {
+                    var cr = caption.Current.BoundingRectangle;
+                    var (itemPopup, itemMenu) = OpenMenu((int)(cr.Left + (cr.Width / 2)), (int)cr.Top - 20);
+                    entry["itemMenu"] = Describe(itemPopup, wa);
+                    if (itemMenu is not null && FindItem(itemMenu, "Group") is { } groupItem)
+                    {
+                        ((ExpandCollapsePattern)groupItem.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+                        Thread.Sleep(600);
+                        entry["itemGroupSubmenu"] = Describe(NewestPopup(itemPopup), wa);
+                    }
+
+                    CloseMenus();
+                }
+
+                // The "…" button: third from the right in the header.
+                var before = Win32.VisibleWindowsOf(_pid).ToHashSet();
+                var dotsX = rect.Right - (int)((rect.Right - rect.Left) * 0.128);
+                Win32.LeftClick(dotsX, rect.Top + 14);
+                var dotsPopup = WaitNewWindow(before, 3);
+                entry["moreButtonMenu"] = Describe(dotsPopup, wa);
+                CloseMenus();
+                result.Add(entry);
+                Log(entry.ToJsonString());
+            }
+        }
+
+        // Straddling the border between the first two monitors: a click on each side.
+        if (screens.Length > 1)
+        {
+            var a = screens[0].WorkingArea;
+            var b = screens[1].WorkingArea;
+            var leftSide = a.Right <= b.Left ? a : b;
+            var rightSide = a.Right <= b.Left ? b : a;
+            Win32.GetWindowRect(hwnd, out var r0);
+            Win32.SetWindowPos(hwnd, new IntPtr(-1), leftSide.Right - (r0.Width / 2), Math.Max(leftSide.Top, rightSide.Top) + 200, 0, 0, 0x0001 | 0x0010);
+            Thread.Sleep(900);
+            Win32.GetWindowRect(hwnd, out var rect);
+            foreach (var (side, x, area) in new[] { ("left part", leftSide.Right - 40, leftSide), ("right part", rightSide.Left + 40, rightSide) })
+            {
+                var (popup, menu) = OpenMenu(x, rect.Top + 14);
+                var entry = new JsonObject { ["case"] = $"straddle-{side}", ["window"] = $"{rect.Left},{rect.Top},{rect.Right},{rect.Bottom}", ["headerMenu"] = Describe(popup, area) };
+                if (menu is not null && FindItem(menu, "Appearance") is { } look)
+                {
+                    ((ExpandCollapsePattern)look.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+                    Thread.Sleep(600);
+                    entry["submenu"] = Describe(NewestPopup(popup), area);
+                }
+
+                CloseMenus();
+                result.Add(entry);
+                Log(entry.ToJsonString());
+            }
+        }
+
+        // The App Folder tile against the bottom-right corner of the primary monitor.
+        var tile = Window("Teams Chat");
+        var primary = screens.First(sc => sc.Primary).WorkingArea;
+        Win32.GetWindowRect(tile, out var t0);
+        Win32.SetWindowPos(tile, new IntPtr(-1), primary.Right - t0.Width, primary.Bottom - t0.Height, 0, 0, 0x0001 | 0x0010);
+        Thread.Sleep(900);
+        Win32.GetWindowRect(tile, out var trect);
+        var (tilePopup, _) = OpenMenu(trect.Left + (trect.Width / 2), trect.Top + (trect.Height / 2));
+        var tileEntry = new JsonObject { ["case"] = "appfolder-tile-BR", ["tileMenu"] = Describe(tilePopup, primary) };
+        CloseMenus();
+        result.Add(tileEntry);
+        Log(tileEntry.ToJsonString());
+        Unpin(tile);
+
+        Unpin(hwnd);
+        return result;
+    }
+
+    private static IntPtr NewestPopup(params IntPtr[] known)
+    {
+        return Win32.VisibleWindowsOf(_pid)
+            .Where(h => !known.Contains(h) && Win32.TitleOf(h).Length == 0
+                && Win32.GetWindowRect(h, out var r) && r.Width > 1 && r.Left > -5000)
+            .FirstOrDefault();
+    }
+
+    private static JsonNode Describe(IntPtr popup, System.Drawing.Rectangle workArea)
+    {
+        if (popup == IntPtr.Zero || !Win32.GetWindowRect(popup, out var r))
+        {
+            return "(none)";
+        }
+
+        var inside = r.Left >= workArea.Left && r.Top >= workArea.Top && r.Right <= workArea.Right && r.Bottom <= workArea.Bottom;
+        return $"{(inside ? "OK " : "OUT")} {r.Left},{r.Top},{r.Right},{r.Bottom}";
+    }
+
+    private static readonly string[] DockGroups = ["Taskbar", "Dev Apps", "Teams Chat", FreeGroup, ScrollGroup];
+
+    private static JsonObject Rects()
+    {
+        var o = new JsonObject();
+        foreach (var name in DockGroups)
+        {
+            var h = Window(name);
+            if (h != IntPtr.Zero && Win32.GetWindowRect(h, out var r))
+            {
+                o[name] = $"{r.Left},{r.Top},{r.Width}x{r.Height}";
+            }
+        }
+
+        return o;
+    }
+
+    private static List<(string Name, Win32.Rect Rect)> StackInOrder()
+    {
+        var config = ReadConfig();
+        var order = config["Dock"]?["Order"]?.AsArray().Select(n => n!.GetValue<string>()).ToList() ?? [];
+        var byId = Groups(config).ToDictionary(g => g["Id"]?.GetValue<string>() ?? "", g => g["Name"]!.GetValue<string>());
+        var list = new List<(string, Win32.Rect)>();
+        foreach (var id in order)
+        {
+            if (byId.TryGetValue(id, out var name) && Window(name) is var h && h != IntPtr.Zero && Win32.GetWindowRect(h, out var r))
+            {
+                list.Add((name, r));
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>Contiguous (±3 px), same left and width, and which ones are taller than a title bar.</summary>
+    private static JsonObject DescribeStack(string label)
+    {
+        var stack = StackInOrder();
+        var contiguous = stack.Zip(stack.Skip(1)).All(p => Math.Abs(p.Second.Rect.Top - p.First.Rect.Bottom) <= 3);
+        var sameColumn = stack.All(x => Math.Abs(x.Rect.Left - stack[0].Rect.Left) <= 2 && Math.Abs(x.Rect.Width - stack[0].Rect.Width) <= 2);
+        var minHeight = stack.Min(x => x.Rect.Height);
+        var expanded = stack.Where(x => x.Rect.Height > minHeight + 20).Select(x => (JsonNode)x.Name).ToArray();
+        var o = new JsonObject
+        {
+            ["members"] = stack.Count,
+            ["order"] = new JsonArray(stack.Select(x => (JsonNode)$"{x.Name} {x.Rect.Left},{x.Rect.Top} {x.Rect.Width}x{x.Rect.Height}").ToArray()),
+            ["contiguous"] = contiguous,
+            ["sameColumn"] = sameColumn,
+            ["expanded"] = new JsonArray(expanded)
+        };
+
+        var union = new System.Drawing.Rectangle(stack[0].Rect.Left - 8, stack[0].Rect.Top - 8, stack[0].Rect.Width + 16, stack[^1].Rect.Bottom - stack[0].Rect.Top + 16);
+        Win32.CaptureRect(union, Shot($"dock-{label}"));
+        return o;
+    }
+
+    private static void HeaderCommand(string group, string item)
+    {
+        var h = Window(group);
+        BringTop(h);
+        Thread.Sleep(300);
+        Win32.GetWindowRect(h, out var r);
+        InvokeFromMenu(new System.Drawing.Point(r.Left + 60, r.Top + 12), item);
+        Thread.Sleep(1200);
+        foreach (var name in DockGroups)
+        {
+            if (Window(name) is var other && other != IntPtr.Zero)
+            {
+                Unpin(other);
+            }
+        }
+    }
+
+    private static Process LaunchWith(string exe, string? action)
+    {
+        var start = new ProcessStartInfo(exe) { UseShellExecute = false };
+        start.Environment["SMARTDOCKGROUPS_DATA_DIR"] = _data;
+        if (action is not null)
+        {
+            start.Arguments = "--desktop-action=" + action;
+        }
+
+        return Process.Start(start)!;
+    }
+
+    private static void Restart(string exe, string? action)
+    {
+        _current?.Kill();
+        _current?.WaitForExit(5000);
+        Thread.Sleep(800);
+        _current = LaunchWith(exe, action);
+        _pid = (uint)_current.Id;
+        WaitFor(() => Window("Dev Apps") != IntPtr.Zero, 30, "groups after restart");
+        Thread.Sleep(3500);
+    }
+
+    private static JsonNode CheckDock(string exe, Process _)
+    {
+        var result = new JsonObject();
+        var before = Rects();
+        var beforeConfig = Groups(ReadConfig()).ToDictionary(
+            g => g["Name"]!.GetValue<string>(),
+            g => $"{g["DesktopX"]} {g["DesktopY"]} {g["DesktopWidth"]}x{g["DesktopHeight"]} collapsed={g["IsCollapsed"]} mode={g["DisplayMode"]}");
+        result["before"] = before;
+
+        HeaderCommand(FreeGroup, "Dock all groups");
+        Thread.Sleep(800);
+        result["docked"] = DescribeStack("1-acoplado");
+
+        var stack = StackInOrder();
+        var second = stack[1].Name;
+        var third = stack[2].Name;
+        HeaderCommand(second, "Expand");
+        result["expandSecond"] = DescribeStack("2-expande-segundo");
+
+        HeaderCommand(third, "Expand");
+        result["expandThird"] = DescribeStack("3-expande-terceiro");
+
+        HeaderCommand(third, "Collapse");
+        result["collapseThird"] = DescribeStack("4-fecha-terceiro");
+
+        // Drag the first title bar 300 px right and 150 px down.
+        var firstHandle = Window(stack[0].Name);
+        BringTop(firstHandle);
+        Thread.Sleep(300);
+        Win32.GetWindowRect(firstHandle, out var fr);
+        var grab = new System.Drawing.Point(fr.Left + 60, fr.Top + 12);
+        Win32.SetCursorPos(grab.X, grab.Y);
+        Thread.Sleep(200);
+        Win32.mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        for (var i = 1; i <= 15; i++)
+        {
+            Win32.SetCursorPos(grab.X + (20 * i), grab.Y + (10 * i));
+            Thread.Sleep(30);
+        }
+
+        Win32.mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(1500);
+        result["dragged"] = DescribeStack("5-arrastado");
+
+        Restart(exe, null);
+        result["afterRestart"] = DescribeStack("6-reaberto");
+
+        HeaderCommand(FreeGroup, "Undock groups");
+        Thread.Sleep(1500);
+        var after = Rects();
+        result["afterUndock"] = after;
+        var afterConfig = Groups(ReadConfig()).ToDictionary(
+            g => g["Name"]!.GetValue<string>(),
+            g => $"{g["DesktopX"]} {g["DesktopY"]} {g["DesktopWidth"]}x{g["DesktopHeight"]} collapsed={g["IsCollapsed"]} mode={g["DisplayMode"]}");
+        result["configRestored"] = new JsonObject(beforeConfig.Select(kv => new KeyValuePair<string, JsonNode?>(
+            kv.Key, (afterConfig.TryGetValue(kv.Key, out var now) && now == kv.Value ? "SAME " : "DIFF ") + kv.Value + (now == kv.Value ? "" : "  ->  " + now))));
+        result["windowsRestored"] = before.All(kv => after[kv.Key]?.GetValue<string>() == kv.Value!.GetValue<string>());
+
+        // Not in memory: the desktop menu's command line starts the app and carries the command out.
+        _current?.Kill();
+        _current?.WaitForExit(5000);
+        Thread.Sleep(800);
+        Restart(exe, "dock-all");
+        result["coldDockAll"] = DescribeStack("7-acoplar-com-app-fechado");
+        result["coldDockConfig"] = ReadConfig()["Dock"]?["IsDocked"]?.GetValue<bool>();
+
+        // Running: a second launch hands the command over and exits.
+        var forwarded = LaunchWith(exe, "undock-all");
+        forwarded.WaitForExit(8000);
+        Thread.Sleep(1500);
+        result["forwardedUndock"] = new JsonObject
+        {
+            ["secondProcessExited"] = forwarded.HasExited,
+            ["isDocked"] = ReadConfig()["Dock"]?["IsDocked"]?.GetValue<bool>(),
+            ["windowsRestored"] = Rects().ToJsonString() == after.ToJsonString()
+        };
+
+        foreach (var action in new[] { "bring-all-to-front", "send-all-to-back", "open-all-groups", "toggle-collapse-all" })
+        {
+            _current?.Kill();
+            _current?.WaitForExit(5000);
+            Thread.Sleep(800);
+            Restart(exe, action);
+            result["cold-" + action] = new JsonObject
+            {
+                ["running"] = !_current!.HasExited,
+                ["groupWindows"] = DockGroups.Count(name => Window(name) != IntPtr.Zero)
+            };
+        }
+
+        return result;
     }
 
     // ───────────────────────────── helpers

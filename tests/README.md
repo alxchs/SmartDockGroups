@@ -9,7 +9,7 @@ publicação.
 dotnet test tests/SmartDockGroups.Tests
 ```
 
-73 testes, ~3 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
+82 testes, ~4 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
 
 - **`MonitorPlacementTests`** — a geometria que resgata um grupo quando o conjunto de
   monitores mudou. O `docs/OVERVIEW.md` registrava que essa matemática tinha sido conferida
@@ -31,6 +31,11 @@ dotnet test tests/SmartDockGroups.Tests
   o escolhido e sobrevivendo a salvar/recarregar, diálogo aberto sob o ponteiro e empurrado
   para dentro da área útil, e a recuperação de atalho perdido — pelo nome, pelo prefixo,
   aceitando duas cópias do mesmo atalho e **recusando** dois atalhos diferentes de mesmo nome.
+- **`DockTests`** — "acoplar todos": a pilha fechada é uma barra depois da outra, expandir
+  um empurra os de baixo pela altura extra, só um fica aberto, o aberto é cortado ao que cabe
+  e a pilha sobe perto do rodapé sem passar do topo da área útil; desacoplar devolve a
+  posição, o tamanho, o estado e o estilo; o estado sobrevive a salvar/recarregar; os verbos
+  do menu da área de trabalho são únicos e têm rótulo nos 8 idiomas.
 - **`PromptPositioningTests`** — cálculo de centralização de janelas por monitor com DPI heterogêneo,
   garantia de contenção na área de trabalho útil, conversão física para DIPs WPF, e validação interativa
   em ambiente multi-monitor real (`Screen.AllScreens`) com medição de retângulos e capturas.
@@ -94,6 +99,8 @@ tests/GroupProbe/bin/Release/net10.0-windows/GroupProbe.exe --verify-lote ^
 Copia a configuração real (só leitura) e o cache de ícones para `<pasta>\data`, acrescenta dois
 grupos de teste ("Livre (teste)", em posição livre, e "Rolagem (teste)", baixo e cheio) e percorre
 os cenários do lote de 2026-09-30, gravando `report-lote.json` e capturas recortadas `lote-*.png`.
+`--dock` roda só o acoplamento (inclusive os comandos com o app fechado, relançando o exe
+com `--desktop-action=`); `--menu-edges` mede os menus com o grupo em cada canto de cada monitor.
 `--clean-cache` = cenário "Instalação limpa"; `--reuse-data` reaproveita a pasta de uma rodada
 anterior (atalhos já adotados). Os rótulos procurados nos menus são os do idioma da configuração
 copiada (hoje inglês).

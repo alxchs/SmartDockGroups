@@ -153,5 +153,14 @@
   "settings.importShortcutsHint": "\"Importa collegamenti\" apre una cartella: seleziona quanti collegamenti vuoi (Ctrl+A li seleziona tutti) e scegli il gruppo che li riceve. Una configurazione JSON sostituisce tutti i gruppi quando fai clic su Salva.",
   "settings.importTargetPrompt": "Aggiungi {0} collegamento/i al gruppo:",
   "settings.importNewGroup": "(Nuovo gruppo...)",
-  "settings.importDone": "{0} collegamento/i aggiunto/i al gruppo \"{1}\"."
+  "settings.importDone": "{0} collegamento/i aggiunto/i al gruppo \"{1}\".",
+  "group.dockAll": "Aggancia tutti i gruppi",
+  "group.undockAll": "Sgancia i gruppi",
+  "group.bringAllToFront": "Porta tutti i gruppi in primo piano",
+  "group.sendAllToBack": "Porta tutti i gruppi in secondo piano",
+  "group.sendOthersToBack": "Porta gli altri gruppi in secondo piano",
+  "desktop.openAllGroups": "Apri tutti i gruppi del desktop",
+  "desktop.closeAllGroups": "Chiudi tutti i gruppi del desktop",
+  "desktop.groupsMenu": "Gruppi del desktop",
+  "group.windowOrder": "Ordine sul desktop"
 }

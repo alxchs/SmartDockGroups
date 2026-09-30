@@ -26,7 +26,7 @@
 Existem duas camadas, e as duas rodam antes de qualquer publicação:
 
 ```
-dotnet test tests/SmartDockGroups.Tests          # 73 assercoes, ~3 s
+dotnet test tests/SmartDockGroups.Tests          # 82 assercoes, ~4 s
 dotnet build -c Release tests/GroupProbe     # sonda de caracterizacao
 ```
 
@@ -43,7 +43,7 @@ python tests/compare_reports.py tests/baseline/report-master.json <pasta>/report
 **Regras que valem para qualquer agente que mexer aqui, inclusive a agy:**
 
 1. **Toque em comportamento de grupo ⇒ rode a sonda e cole a saída do comparador.** "Compila"
-   não é prova. Divergência inesperada nos 372 campos (eram 316 antes da reorganização dos
+   não é prova. Divergência inesperada nos 382 campos (eram 316 antes da reorganização dos
    menus em 2026-09-30) é reprovação, não detalhe.
 2. **Valide o oráculo antes de usá-lo.** Antes de comparar dois builds, rode a sonda duas
    vezes contra o *mesmo* build e confirme `IDENTICO`. Um oráculo que oscila reprova ou aprova

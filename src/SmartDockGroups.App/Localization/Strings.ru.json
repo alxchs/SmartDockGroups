@@ -153,5 +153,14 @@
   "settings.importShortcutsHint": "\"Импортировать ярлыки\" открывает папку: выберите сколько угодно ярлыков (Ctrl+A выделяет все) и группу, в которую их добавить. Настройки JSON заменяют все группы при нажатии «Сохранить».",
   "settings.importTargetPrompt": "Добавить ярлыков ({0}) в группу:",
   "settings.importNewGroup": "(Новая группа...)",
-  "settings.importDone": "Добавлено ярлыков в группу \"{1}\": {0}."
+  "settings.importDone": "Добавлено ярлыков в группу \"{1}\": {0}.",
+  "group.dockAll": "Состыковать все группы",
+  "group.undockAll": "Расстыковать группы",
+  "group.bringAllToFront": "Все группы на передний план",
+  "group.sendAllToBack": "Все группы на задний план",
+  "group.sendOthersToBack": "Остальные группы на задний план",
+  "desktop.openAllGroups": "Открыть все группы рабочего стола",
+  "desktop.closeAllGroups": "Закрыть все группы рабочего стола",
+  "desktop.groupsMenu": "Группы рабочего стола",
+  "group.windowOrder": "Порядок на рабочем столе"
 }
