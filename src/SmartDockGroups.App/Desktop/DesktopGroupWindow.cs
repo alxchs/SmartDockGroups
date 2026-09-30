@@ -135,6 +135,7 @@ internal sealed class DesktopGroupWindow : Window
     private const uint SWP_NOACTIVATE = 0x0010;
 
     private Canvas _canvas = null!;
+    private System.Windows.Controls.ScrollViewer _scroller = null!;
     private Border _border = null!;
     private Grid _root = null!;
     private ContentControl _folderHost = null!;
@@ -207,6 +208,10 @@ internal sealed class DesktopGroupWindow : Window
         ShowInTaskbar = false;
         ResizeMode = ResizeMode.NoResize;
         Topmost = false;
+
+        // Never drawn (no system title bar), but it names the window for screen readers,
+        // UI Automation and the verification probe.
+        Title = category.Name;
         Background = Brushes.Transparent;
         Left = category.DesktopX;
         Top = category.DesktopY;
@@ -590,6 +595,8 @@ internal sealed class DesktopGroupWindow : Window
             _category.PanelY = Top;
         }
 
+        // The sheet belongs to the folder look; leaving it (possibly from the sheet's own menu) closes it.
+        _overlay?.Close();
         _category.DisplayMode = IsAppFolder ? DesktopGroupDisplayMode.Panel : DesktopGroupDisplayMode.AppFolder;
         _header.ContextMenu = BuildHeaderContextMenu();
         ApplyDisplayMode();
@@ -702,11 +709,12 @@ internal sealed class DesktopGroupWindow : Window
         DockPanel.SetDock(_searchBar, Dock.Top);
         panel.Children.Add(_searchBar);
 
+        // A layout (not render) transform, so the scroller below sees the zoomed size and
+        // scrolls exactly as far as the icons reach. Canvas coordinates stay pre-zoom either way.
         _canvas = new Canvas
         {
             Background = Brushes.Transparent,
-            RenderTransform = _zoomTransform,
-            RenderTransformOrigin = new System.Windows.Point(0, 0),
+            LayoutTransform = _zoomTransform,
             ContextMenu = BuildHeaderContextMenu()
         };
         _canvas.MouseLeftButtonDown += (_, e) =>
@@ -860,9 +868,25 @@ internal sealed class DesktopGroupWindow : Window
 
         _canvas.PreviewMouseRightButtonDown += (_, _) => _canvas.ContextMenu = BuildHeaderContextMenu();
 
+        _scroller = new System.Windows.Controls.ScrollViewer
+        {
+            Content = _canvas,
+            VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
+            Background = Brushes.Transparent,
+            Focusable = false,
+            // Arrow keys belong to icon navigation (OnPreviewKeyDown), not to scrolling.
+            IsTabStop = false
+        };
+        _scroller.SizeChanged += (_, _) => UpdateCanvasExtent();
+
+        // The stock template paints the square where both scrollbars meet with the system
+        // control colour — a white block on a dark group. Only that square reads this key.
+        _scroller.Resources[System.Windows.SystemColors.ControlBrushKey] = Brushes.Transparent;
+
         PopulateTiles();
 
-        panel.Children.Add(_canvas);
+        panel.Children.Add(_scroller);
 
         _border = new Border
         {
@@ -1055,7 +1079,46 @@ internal sealed class DesktopGroupWindow : Window
         ClearAllHighlights();
         _searchMatches.Clear();
         _searchResultsList.Items.Clear();
+        RefreshSelectionVisuals();
+        RefreshCutVisuals();
         Keyboard.ClearFocus();
+    }
+
+    private bool IsSearchActive =>
+        _searchBar is not null && _searchBar.Visibility == Visibility.Visible && !string.IsNullOrEmpty(_searchBox.Text);
+
+    /// <summary>
+    /// While Ctrl+F has a query, the icons themselves answer it — not only the name
+    /// highlighting and the list under the box: every match gets a tinted backdrop, the
+    /// one Enter would open gets the full highlight and is scrolled into view, and
+    /// everything else fades back so the matches stand out at a glance.
+    /// </summary>
+    private void ReapplySearchEmphasis()
+    {
+        if (!IsSearchActive)
+        {
+            return;
+        }
+
+        var current = (_searchResultsList.SelectedItem as System.Windows.Controls.ListBoxItem)?.Tag;
+        foreach (var (entry, tile) in _tilesByEntry)
+        {
+            var isMatch = _searchMatches.Contains(entry);
+            tile.Opacity = isMatch ? 1.0 : 0.22;
+            if (tile is Panel panel)
+            {
+                panel.Background = ReferenceEquals(entry, current)
+                    ? ThemeBrushes.CreateBrush(_theme.HighlightColor, 1.0)
+                    : isMatch
+                        ? ThemeBrushes.CreateBrush(_theme.HighlightColor, 0.5)
+                        : Brushes.Transparent;
+            }
+        }
+
+        if (current is not null)
+        {
+            ScrollEntryIntoView(current);
+        }
     }
 
     private void UpdateSearchMatches(string query)
@@ -1068,6 +1131,8 @@ internal sealed class DesktopGroupWindow : Window
         {
             _searchCountText.Text = string.Empty;
             _searchPopup.IsOpen = false;
+            RefreshSelectionVisuals();
+            RefreshCutVisuals();
             return;
         }
 
@@ -1112,6 +1177,7 @@ internal sealed class DesktopGroupWindow : Window
         }
 
         _searchPopup.IsOpen = _searchResultsList.Items.Count > 0;
+        ReapplySearchEmphasis();
     }
 
     private void MoveSearchSelection(int delta)
@@ -1124,6 +1190,7 @@ internal sealed class DesktopGroupWindow : Window
         var next = Math.Clamp(_searchResultsList.SelectedIndex + delta, 0, _searchResultsList.Items.Count - 1);
         _searchResultsList.SelectedIndex = next;
         _searchResultsList.ScrollIntoView(_searchResultsList.SelectedItem);
+        ReapplySearchEmphasis();
     }
 
     /// <summary>Enter on a result does exactly what double-clicking the icon itself would.</summary>
@@ -1405,7 +1472,24 @@ internal sealed class DesktopGroupWindow : Window
     private ContextMenu BuildHeaderContextMenu()
     {
         var menu = CreateContextMenuShell();
+        PopulateGroupMenu(menu);
+        return menu;
+    }
 
+    /// <summary>The group's own menu, for the App Folder sheet's empty background.</summary>
+    internal ContextMenu BuildGroupMenu() => BuildHeaderContextMenu();
+
+    /// <summary>
+    /// Everything that acts on the group, arranged by what it touches rather than in one
+    /// long list: the group itself, what goes in it, how the icons are laid out
+    /// ("Exibição"), how it is painted ("Aparência"), where it sits among the others, and
+    /// the app-wide commands. The same builder feeds the header, the empty canvas, the
+    /// closed App Folder tile, the App Folder sheet and the "Este grupo" submenu of an
+    /// icon, so no place shows a shorter menu than another.
+    /// </summary>
+    private void PopulateGroupMenu(ItemsControl menu)
+    {
+        // ── The group itself
         if (IsAppFolder)
         {
             AddMenuItem(menu, LocalizationService.Get("group.openFolder"), OpenOverlay, "IconOpenExternal");
@@ -1421,9 +1505,10 @@ internal sealed class DesktopGroupWindow : Window
 
         AddMenuItem(menu, LocalizationService.Get("group.rename"), OnRenameClick, "IconRename");
 
+        // ── What goes in it
         menu.Items.Add(BuildSeparator());
-
         AddMenuItem(menu, LocalizationService.Get("group.newShortcut"), CreateShortcut, "IconAdd");
+        AddMenuItem(menu, LocalizationService.Get("group.importShortcuts"), ImportShortcuts, "IconFolderOpen");
 
         var canPaste = System.Windows.Clipboard.ContainsFileDropList() || _pendingCuts.Count > 0;
         var pasteItem = CreateMenuItem(LocalizationService.Get("group.paste") + "\tCtrl+V", "IconPaste");
@@ -1431,134 +1516,180 @@ internal sealed class DesktopGroupWindow : Window
         pasteItem.Click += (_, _) => PasteFromClipboard();
         menu.Items.Add(pasteItem);
 
+        // ── How it looks
         menu.Items.Add(BuildSeparator());
 
-        AddCheckItem(menu, LocalizationService.Get("group.arrangeIcons"), _category.IconArrangement != IconArrangement.None, ToggleArrangeIconsAutomatically, "IconGrid");
+        var viewMenu = CreateMenuItem(LocalizationService.Get("group.viewMenu"), "IconGrid");
+        AddMenuItem(
+            viewMenu,
+            LocalizationService.Get(IsAppFolder ? "group.stylePanel" : "group.styleAppFolder"),
+            ToggleDisplayMode,
+            IsAppFolder ? "IconStylePanel" : "IconStyleAppFolder");
+        AddCheckItem(viewMenu, LocalizationService.Get("group.arrangeIcons"), _category.IconArrangement != IconArrangement.None, ToggleArrangeIconsAutomatically, "IconSort");
 
         var sizeMenu = CreateMenuItem(LocalizationService.Get("group.iconSize"), "IconIconSize");
         AddCheckItem(sizeMenu, LocalizationService.Get("group.iconSizeSmall"), IsIconScale(0.75), () => SetIconScale(0.75));
         AddCheckItem(sizeMenu, LocalizationService.Get("group.iconSizeMedium"), IsIconScale(1.0), () => SetIconScale(1.0));
         AddCheckItem(sizeMenu, LocalizationService.Get("group.iconSizeLarge"), IsIconScale(1.5), () => SetIconScale(1.5));
-        menu.Items.Add(sizeMenu);
-
-        var orderMenu = CreateMenuItem(LocalizationService.Get("group.windowOrder"), "IconSort");
-        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToFront"), BringAllGroupsToFront);
-        AddMenuItem(orderMenu, LocalizationService.Get("group.sendOthersToBack"), SendOthersToBack);
-        AddMenuItem(orderMenu, LocalizationService.Get("group.sendAllToBack"), SendAllToBack);
-        orderMenu.Items.Add(BuildSeparator());
-        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToThisMonitorCentered"), BringAllGroupsToThisMonitorCentered, "IconGrid");
-        PopulateSendAllToMonitors(orderMenu);
-        menu.Items.Add(orderMenu);
-
-        menu.Items.Add(BuildSeparator());
-        AddMenuItem(
-            menu,
-            LocalizationService.Get(IsAppFolder ? "group.stylePanel" : "group.styleAppFolder"),
-            ToggleDisplayMode,
-            IsAppFolder ? "IconStylePanel" : "IconStyleAppFolder");
-
-
-        menu.Items.Add(BuildSeparator());
-        AddMenuItem(menu, LocalizationService.Get("group.backgroundColor"), OnChangeColorClick, "IconColor");
-        AddMenuItem(menu, LocalizationService.Get("group.backgroundImage"), OnChangeBackgroundImageClick, "IconImage");
-        AddMenuItem(menu, LocalizationService.Get("group.removeBackgroundImage"), OnClearBackgroundImageClick);
-
-        var opacityMenu = CreateMenuItem(LocalizationService.Get("group.opacity"), "IconOpacity");
-        AddOpacitySlider(opacityMenu, LocalizationService.Get("group.areaOpacity"), _category.AreaOpacity, SetAreaOpacity);
-        AddOpacitySlider(opacityMenu, LocalizationService.Get("group.titleOpacity"), _category.TitleOpacity, SetTitleOpacity);
-        menu.Items.Add(opacityMenu);
+        viewMenu.Items.Add(sizeMenu);
 
         var spacingMenu = CreateMenuItem(LocalizationService.Get("group.iconSpacing"), "IconSpacing");
         AddSpacingSlider(spacingMenu, LocalizationService.Get("group.iconHGap"), _category.IconHGap, SetIconHGap);
         AddSpacingSlider(spacingMenu, LocalizationService.Get("group.iconVGap"), _category.IconVGap, SetIconVGap);
-        menu.Items.Add(spacingMenu);
+        viewMenu.Items.Add(spacingMenu);
+        menu.Items.Add(viewMenu);
+
+        var lookMenu = CreateMenuItem(LocalizationService.Get("group.shareVisual"), "IconColor");
+        AddMenuItem(lookMenu, LocalizationService.Get("group.backgroundColor"), OnChangeColorClick, "IconColor");
+        AddMenuItem(lookMenu, LocalizationService.Get("group.backgroundImage"), OnChangeBackgroundImageClick, "IconImage");
+        if (_commands is not null)
+        {
+            AddMenuItem(lookMenu, LocalizationService.Get("group.wallpaperAsBackground"), () => _commands.ApplyWallpaper(_category), "IconImage");
+        }
+
+        var removeImage = CreateMenuItem(LocalizationService.Get("group.removeBackgroundImage"));
+        removeImage.IsEnabled = !string.IsNullOrWhiteSpace(_category.DesktopBackgroundImagePath);
+        removeImage.Click += (_, _) => OnClearBackgroundImageClick();
+        lookMenu.Items.Add(removeImage);
+
+        var opacityMenu = CreateMenuItem(LocalizationService.Get("group.opacity"), "IconOpacity");
+        AddOpacitySlider(opacityMenu, LocalizationService.Get("group.areaOpacity"), _category.AreaOpacity, SetAreaOpacity);
+        AddOpacitySlider(opacityMenu, LocalizationService.Get("group.titleOpacity"), _category.TitleOpacity, SetTitleOpacity);
+        lookMenu.Items.Add(opacityMenu);
 
         if (_commands is not null)
         {
+            lookMenu.Items.Add(BuildSeparator());
+            lookMenu.Items.Add(BuildShareMenu());
+        }
+
+        menu.Items.Add(lookMenu);
+
+        // ── Where it sits among the others
+        var orderMenu = CreateMenuItem(LocalizationService.Get("group.windowOrder"), "IconMove");
+        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToFront"), BringAllGroupsToFront);
+        AddMenuItem(orderMenu, LocalizationService.Get("group.sendOthersToBack"), SendOthersToBack);
+        AddMenuItem(orderMenu, LocalizationService.Get("group.sendAllToBack"), SendAllToBack);
+        orderMenu.Items.Add(BuildSeparator());
+        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToThisMonitorCentered"), BringAllGroupsToThisMonitorCentered, "IconGather");
+        PopulateSendAllToMonitors(orderMenu);
+        menu.Items.Add(orderMenu);
+
+        // ── Groups and the app
+        if (_commands is not null)
+        {
             menu.Items.Add(BuildSeparator());
+            AddMenuItem(menu, LocalizationService.Get("group.newGroup"), _commands.CreateGroup, "IconAdd");
             AddMenuItem(menu, LocalizationService.Get("group.duplicate"), () => _commands.Duplicate(_category), "IconDuplicate");
             AddMenuItem(menu, LocalizationService.Get("group.taskbarShortcut"), () => _commands.CreateTaskbarShortcut(_category), "IconStylePanel");
-            AddMenuItem(menu, LocalizationService.Get("group.wallpaperAsBackground"), () => _commands.ApplyWallpaper(_category), "IconImage");
-
-            var shareMenu = CreateMenuItem(LocalizationService.Get("group.shareVisual"), "IconStylePanel");
-            AddMenuItem(shareMenu, LocalizationService.Get("group.applyVisualToAll"), () => _commands.ApplyVisualToAllGroups(_category));
-            AddMenuItem(shareMenu, LocalizationService.Get("group.setAsDefaultVisual"), () => _commands.SetAsDefaultVisual(_category));
-            AddMenuItem(shareMenu, LocalizationService.Get("group.wallpaperForAll"), () => _commands.ApplyWallpaper(null));
-            menu.Items.Add(shareMenu);
-
-            menu.Items.Add(BuildSeparator());
             AddMenuItem(menu, LocalizationService.Get("tray.settings"), _commands.OpenSettings, "IconSettings");
         }
 
+        // ── Closing and removing
         menu.Items.Add(BuildSeparator());
-
         AddMenuItem(menu, LocalizationService.Get("group.close"), CloseGroup, "IconClose");
+        AddMenuItem(menu, LocalizationService.Get("group.remove"), OnDeleteGroupClick, "IconDelete");
+    }
 
-        var isEmpty = GroupEntries.Count(_category) == 0;
-        var removeItem = CreateMenuItem(LocalizationService.Get("group.remove"), "IconDelete");
-        removeItem.IsEnabled = isEmpty;
-        removeItem.Click += (_, _) => OnDeleteGroupClick();
-        if (!isEmpty)
+    /// <summary>
+    /// Sharing one aspect at a time: the image without forcing the colour, the colour
+    /// without the image, the spacing alone… either onto every other group right now, or
+    /// as the starting point for groups created later.
+    /// </summary>
+    private MenuItem BuildShareMenu()
+    {
+        var share = CreateMenuItem(LocalizationService.Get("group.shareWithOthers"), "IconDuplicate");
+
+        MenuItem Aspects(string headerKey, bool asDefault)
         {
-            removeItem.ToolTip = LocalizationService.Get("group.removeOnlyEmpty");
+            var parent = CreateMenuItem(LocalizationService.Get(headerKey));
+            AddMenuItem(parent, LocalizationService.Get("group.aspectAll"), () => _commands!.ShareVisual(_category, VisualAspects.All, asDefault));
+            parent.Items.Add(BuildSeparator());
+            AddMenuItem(parent, LocalizationService.Get("group.aspectColor"), () => _commands!.ShareVisual(_category, VisualAspects.BackgroundColor, asDefault), "IconColor");
+            AddMenuItem(parent, LocalizationService.Get("group.aspectImage"), () => _commands!.ShareVisual(_category, VisualAspects.BackgroundImage, asDefault), "IconImage");
+            AddMenuItem(parent, LocalizationService.Get("group.aspectOpacity"), () => _commands!.ShareVisual(_category, VisualAspects.Opacity, asDefault), "IconOpacity");
+            AddMenuItem(parent, LocalizationService.Get("group.aspectSpacing"), () => _commands!.ShareVisual(_category, VisualAspects.IconSpacing, asDefault), "IconSpacing");
+            AddMenuItem(parent, LocalizationService.Get("group.aspectIconSize"), () => _commands!.ShareVisual(_category, VisualAspects.IconSize, asDefault), "IconIconSize");
+            return parent;
         }
 
-        menu.Items.Add(removeItem);
-
-        return menu;
+        share.Items.Add(Aspects("group.applyVisualToAll", asDefault: false));
+        share.Items.Add(Aspects("group.setAsDefaultVisual", asDefault: true));
+        share.Items.Add(BuildSeparator());
+        AddMenuItem(share, LocalizationService.Get("group.wallpaperForAll"), () => _commands!.ApplyWallpaper(null), "IconImage");
+        return share;
     }
 
     private ContextMenu BuildItemTileContextMenu(LaunchItem item)
     {
-        var menu = CreateContextMenuShell();
-        AddMenuItem(menu, LocalizationService.Get("item.open"), () => _onExecute(item), "IconOpenExternal");
-
-        if (ShellCommands.HasFileTarget(item))
-        {
-            AddMenuItem(menu, LocalizationService.Get("item.runAsAdmin"), () => ShellCommands.RunAsAdministrator(item), "IconShield");
-            AddMenuItem(menu, LocalizationService.Get("item.openFileLocation"), () => ShellCommands.RevealInExplorer(item), "IconFolderOpen");
-            menu.Items.Add(BuildSeparator());
-            AddMenuItem(menu, LocalizationService.Get("item.copyPath"), () => ShellCommands.CopyPath(item), "IconCopy");
-        }
-
-        AddMenuItem(menu, LocalizationService.Get("item.rename"), () => RenameItem(item), "IconRename");
-        menu.Items.Add(BuildSeparator());
-        AddMenuItem(menu, LocalizationService.Get("item.cut") + "\tCtrl+X", () => CopySelectedToClipboard(cut: true), "IconCut");
-        AddMenuItem(menu, LocalizationService.Get("item.copy") + "\tCtrl+C", () => CopySelectedToClipboard(cut: false), "IconCopy");
-        menu.Items.Add(BuildSeparator());
-        AddMenuItem(menu, LocalizationService.Get("item.removeFromGroup"), () => RemoveEntryRespectingSelection(item, () => RemoveItem(item)), "IconDelete");
-
-        if (ShellCommands.HasFileTarget(item))
-        {
-            menu.Items.Add(BuildSeparator());
-            AddMenuItem(menu, LocalizationService.Get("item.properties"), () => ShellCommands.ShowProperties(item), "IconProperties");
-            AddMenuItem(menu, LocalizationService.Get("item.standardMenu"), () => ShowStandardMenu(item), "IconShellMenu");
-        }
-
-        return menu;
+        return BuildEntryMenu(item, _category, _selectedEntries, () => _onExecute(item), this);
     }
 
     private ContextMenu BuildFolderTileContextMenu(MenuCategory folder)
     {
-        var menu = CreateContextMenuShell();
-        AddMenuItem(menu, LocalizationService.Get("item.open"), () => OpenSubfolder(folder), "IconFolder");
-        AddMenuItem(menu, LocalizationService.Get("item.rename"), () => RenameFolder(folder), "IconRename");
-        menu.Items.Add(BuildSeparator());
-        AddMenuItem(menu, LocalizationService.Get("item.cut") + "\tCtrl+X", () => CopySelectedToClipboard(cut: true), "IconCut");
-        AddMenuItem(menu, LocalizationService.Get("item.copy") + "\tCtrl+C", () => CopySelectedToClipboard(cut: false), "IconCopy");
-        menu.Items.Add(BuildSeparator());
+        return BuildEntryMenu(folder, _category, _selectedEntries, () => OpenSubfolder(folder), this);
+    }
 
-        var isEmpty = GroupEntries.Count(folder) == 0;
-        var partOfMultiSelection = _selectedEntries.Count > 1 && _selectedEntries.Contains(folder);
-        var removeItem = CreateMenuItem(LocalizationService.Get("item.removeFromGroup"), "IconDelete");
-        removeItem.IsEnabled = isEmpty || partOfMultiSelection;
-        removeItem.Click += (_, _) => RemoveEntryRespectingSelection(folder, () => RemoveFolder(folder));
-        if (!isEmpty && !partOfMultiSelection)
+    /// <summary>
+    /// The menu of one icon, the same in the panel and in the App Folder sheet: open it,
+    /// move it through the clipboard, change it, then the Windows commands for the file,
+    /// and at the bottom the group's own menu and "new group" — reachable without first
+    /// finding an empty spot to right-click. <paramref name="selection"/> is whatever is
+    /// highlighted where the click happened; commands act on all of it when the clicked
+    /// icon is part of it, the way Explorer does.
+    /// </summary>
+    internal ContextMenu BuildEntryMenu(object entry, MenuCategory container, IReadOnlyCollection<object> selection, Action open, Window dialogOwner)
+    {
+        var menu = CreateContextMenuShell();
+        var targets = selection.Count > 1 && selection.Contains(entry) ? selection.ToList() : new List<object> { entry };
+        var item = entry as LaunchItem;
+        var hasFile = item is not null && ShellCommands.HasFileTarget(item);
+
+        // ── Open
+        AddMenuItem(menu, LocalizationService.Get("item.open"), open, entry is MenuCategory ? "IconFolder" : "IconOpenExternal");
+        if (hasFile)
         {
-            removeItem.ToolTip = LocalizationService.Get("group.removeOnlyEmpty");
+            AddMenuItem(menu, LocalizationService.Get("item.runAsAdmin"), () => ShellCommands.RunAsAdministrator(item!), "IconShield");
+            AddMenuItem(menu, LocalizationService.Get("item.openFileLocation"), () => ShellCommands.RevealInExplorer(item!), "IconFolderOpen");
         }
 
-        menu.Items.Add(removeItem);
+        // ── Clipboard
+        menu.Items.Add(BuildSeparator());
+        AddMenuItem(menu, LocalizationService.Get("item.cut") + "\tCtrl+X", () => CopyEntriesToClipboard(targets, cut: true), "IconCut");
+        AddMenuItem(menu, LocalizationService.Get("item.copy") + "\tCtrl+C", () => CopyEntriesToClipboard(targets, cut: false), "IconCopy");
+        if (hasFile)
+        {
+            AddMenuItem(menu, LocalizationService.Get("item.copyPath"), () => ShellCommands.CopyPath(item!), "IconCopy");
+        }
+
+        // ── Change it
+        menu.Items.Add(BuildSeparator());
+        AddMenuItem(menu, LocalizationService.Get("item.rename") + "\tF2", () => RenameEntry(container, entry, dialogOwner), "IconRename");
+        if (item is not null && IsTargetMissing(item))
+        {
+            AddMenuItem(menu, LocalizationService.Get("item.locateTarget"), () => LocateMissingTarget(item), "IconSearch");
+        }
+
+        AddMenuItem(menu, LocalizationService.Get("item.removeFromGroup") + "\tDel", () => RemoveEntries(container, targets, dialogOwner), "IconDelete");
+
+        // ── Windows
+        if (hasFile)
+        {
+            menu.Items.Add(BuildSeparator());
+            AddMenuItem(menu, LocalizationService.Get("item.properties"), () => ShellCommands.ShowProperties(item!), "IconProperties");
+            AddMenuItem(menu, LocalizationService.Get("item.standardMenu"), () => ShowStandardMenu(item!), "IconShellMenu");
+        }
+
+        // ── The group and new groups
+        menu.Items.Add(BuildSeparator());
+        var groupMenu = CreateMenuItem(LocalizationService.Format("item.thisGroup", _category.Name), "IconMore");
+        PopulateGroupMenu(groupMenu);
+        menu.Items.Add(groupMenu);
+        if (_commands is not null)
+        {
+            AddMenuItem(menu, LocalizationService.Get("group.newGroup"), _commands.CreateGroup, "IconAdd");
+        }
+
         return menu;
     }
 
@@ -1725,7 +1856,9 @@ internal sealed class DesktopGroupWindow : Window
             Target = string.Empty,
             IsDesktopPinned = true
         };
-        var editor = new Settings.LaunchItemEditWindow(newItem)
+        var editor = new Settings.LaunchItemEditWindow(
+            newItem,
+            name => GroupNames.IsTaken(_category, name) ? LocalizationService.Format("group.nameTaken", name) : null)
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
             Topmost = true
@@ -1733,24 +1866,20 @@ internal sealed class DesktopGroupWindow : Window
         if (editor.ShowDialog() == true)
         {
             newItem.IsDesktopPinned = true;
-            if (newItem.DesktopIconX is null || newItem.DesktopIconY is null)
-            {
-                var index = _category.Items.Count + _category.Categories.Count;
-                var usableWidth = _category.DesktopWidth - (PaddingX * 2);
-                var columns = Math.Max(1, (int)(usableWidth / (HStride * _category.DesktopIconScale)));
-                newItem.DesktopIconX = PaddingX + ((index % columns) * HStride);
-                newItem.DesktopIconY = PaddingY + ((index / columns) * VStride);
-            }
-
+            newItem.Target = ShortcutStore.Adopt(newItem.Target);
+            PlaceInFreeCells([newItem]);
             _category.Items.Add(newItem);
             FinishStructuralChange();
-            _onLayoutChanged(_category);
+            SelectEntries([newItem]);
         }
     }
 
     private void CreateSubfolder()
     {
-        var prompt = new Settings.TextPromptWindow(LocalizationService.Get("group.folderNamePrompt"), string.Empty);
+        var prompt = new Settings.TextPromptWindow(
+            LocalizationService.Get("group.folderNamePrompt"),
+            string.Empty,
+            validate: name => GroupNames.IsTaken(_category, name) ? LocalizationService.Format("group.nameTaken", name) : null);
         if (prompt.ShowDialog() != true)
         {
             return;
@@ -1770,7 +1899,7 @@ internal sealed class DesktopGroupWindow : Window
 
         var item = new LaunchItem
         {
-            Name = Path.GetFileNameWithoutExtension(fileName),
+            Name = GroupNames.MakeUnique(_category, Path.GetFileNameWithoutExtension(fileName)),
             Type = LaunchItemType.File,
             Target = fullPath,
             IsDesktopPinned = true
@@ -1801,63 +1930,101 @@ internal sealed class DesktopGroupWindow : Window
         return candidate;
     }
 
-    private void RenameItem(LaunchItem item)
+    /// <summary>
+    /// Renames an icon, refusing — with the reason, and the dialog left open — a name
+    /// another entry of the same group already uses.
+    /// </summary>
+    internal void RenameEntry(MenuCategory container, object entry, Window owner)
     {
-        var prompt = new Settings.TextPromptWindow(LocalizationService.Get("item.renamePrompt"), item.Name);
+        var prompt = new Settings.TextPromptWindow(
+            LocalizationService.Get(entry is MenuCategory ? "group.folderNamePrompt" : "item.renamePrompt"),
+            GroupEntries.NameOf(entry),
+            validate: name => GroupNames.IsTaken(container, name, entry)
+                ? LocalizationService.Format("group.nameTaken", name)
+                : null)
+        {
+            Owner = owner.IsVisible ? owner : null
+        };
+
         if (prompt.ShowDialog() != true)
         {
             return;
         }
 
-        item.Name = prompt.Value;
+        switch (entry)
+        {
+            case LaunchItem item:
+                item.Name = prompt.Value;
+                break;
+            case MenuCategory folder:
+                folder.Name = prompt.Value;
+                break;
+        }
+
         FinishStructuralChange();
     }
 
-    private void RemoveItem(LaunchItem item)
+    /// <summary>
+    /// Removes icons from <paramref name="container"/> after one confirmation. A folder
+    /// that still holds shortcuts can be removed too — the question then says what will be
+    /// lost, and "No" is the default answer.
+    /// </summary>
+    internal void RemoveEntries(MenuCategory container, IReadOnlyCollection<object> entries, Window owner)
     {
-        var confirmed = MessageBox.Show(
-            this,
-            LocalizationService.Format("item.removeConfirm", item.Name),
-            LocalizationService.Get("common.appName"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        var names = string.Join(", ", entries.Select(GroupEntries.NameOf));
+        var lost = entries.OfType<MenuCategory>().Sum(CountShortcuts);
+
+        var confirmed = lost > 0
+            ? MessageBox.Show(
+                owner,
+                LocalizationService.Format("item.removeWithContentsConfirm", names, lost),
+                LocalizationService.Get("common.appName"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No)
+            : MessageBox.Show(
+                owner,
+                LocalizationService.Format("item.removeConfirm", names),
+                LocalizationService.Get("common.appName"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
 
         if (confirmed != MessageBoxResult.Yes)
         {
             return;
         }
 
-        _category.Items.Remove(item);
+        foreach (var entry in entries)
+        {
+            switch (entry)
+            {
+                case LaunchItem item:
+                    container.Items.Remove(item);
+                    break;
+                case MenuCategory folder:
+                    container.Categories.Remove(folder);
+                    if (_openSubfolders.TryGetValue(folder, out var openWindow))
+                    {
+                        openWindow.Close();
+                        _openSubfolders.Remove(folder);
+                    }
+
+                    break;
+            }
+        }
+
         FinishStructuralChange();
     }
 
-    private void RenameFolder(MenuCategory folder)
+    /// <summary>Every shortcut in a group, including those inside its subfolders.</summary>
+    private static int CountShortcuts(MenuCategory group)
     {
-        var prompt = new Settings.TextPromptWindow(LocalizationService.Get("group.folderNamePrompt"), folder.Name);
-        if (prompt.ShowDialog() != true)
-        {
-            return;
-        }
-
-        folder.Name = prompt.Value;
-        FinishStructuralChange();
-    }
-
-    private void RemoveFolder(MenuCategory folder)
-    {
-        var confirmed = MessageBox.Show(
-            this,
-            LocalizationService.Format("item.removeConfirm", folder.Name),
-            LocalizationService.Get("common.appName"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (confirmed != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
-        DeleteFolder(folder);
+        return group.Items.Count + group.Categories.Sum(CountShortcuts);
     }
 
     private void DeleteFolder(MenuCategory folder)
@@ -1904,6 +2071,7 @@ internal sealed class DesktopGroupWindow : Window
 
         _category.Name = prompt.Value;
         _headerText.Text = prompt.Value;
+        Title = prompt.Value;
         RefreshFolderTile();
         _onLayoutChanged(_category);
     }
@@ -1946,16 +2114,12 @@ internal sealed class DesktopGroupWindow : Window
     {
         _category.IconHGap = (int)Math.Clamp(Math.Round(value), 10, 30);
         FinishStructuralChange();
-        PopulateTiles();
-        _onLayoutChanged(_category);
     }
 
     private void SetIconVGap(double value)
     {
         _category.IconVGap = (int)Math.Clamp(Math.Round(value), 10, 30);
         FinishStructuralChange();
-        PopulateTiles();
-        _onLayoutChanged(_category);
     }
 
     private void ToggleCollapse()
@@ -1968,7 +2132,7 @@ internal sealed class DesktopGroupWindow : Window
     private void SetCollapsed(bool collapsed)
     {
         _category.IsCollapsed = collapsed;
-        _canvas.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        _scroller.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
         SetResizeHandlesVisible(!collapsed);
 
         UpdateCollapseGlyph();
@@ -2008,14 +2172,28 @@ internal sealed class DesktopGroupWindow : Window
         _onLayoutChanged(_category);
     }
 
+    /// <summary>
+    /// Any group can be removed, not only an empty one. When it still holds shortcuts the
+    /// question says how many will be lost, and "No" is the default answer, so a stray
+    /// Enter keeps the group.
+    /// </summary>
     private void OnDeleteGroupClick()
     {
-        var confirmed = MessageBox.Show(
-            this,
-            LocalizationService.Format("group.deleteConfirm", _category.Name),
-            LocalizationService.Get("common.appName"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+        var shortcuts = CountShortcuts(_category);
+        var confirmed = shortcuts > 0
+            ? MessageBox.Show(
+                this,
+                LocalizationService.Format("group.deleteWithContentsConfirm", _category.Name, shortcuts),
+                LocalizationService.Get("common.appName"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No)
+            : MessageBox.Show(
+                this,
+                LocalizationService.Format("group.deleteConfirm", _category.Name),
+                LocalizationService.Get("common.appName"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
 
         if (confirmed == MessageBoxResult.Yes)
         {
@@ -2050,26 +2228,157 @@ internal sealed class DesktopGroupWindow : Window
         }
 
         var paths = (string[])e.Data.GetData(System.Windows.DataFormats.FileDrop)!;
-        var dropPoint = e.GetPosition(_canvas);
+        AddIncomingPaths(paths, e.GetPosition(_canvas));
+    }
+
+    /// <summary>
+    /// The one way files from outside join this group — dropped, pasted or imported.
+    /// Shortcut files are adopted (see <see cref="ShortcutStore"/>) so the group keeps
+    /// working after the original is deleted; the same shortcut twice is not added again;
+    /// a name already used here gets a " (2)" suffix instead of a twin. Returns what was
+    /// actually added.
+    /// </summary>
+    internal List<LaunchItem> AddIncomingPaths(IEnumerable<string> paths, System.Windows.Point? dropPoint = null)
+    {
+        var added = new List<LaunchItem>();
         var offset = 0.0;
 
-        foreach (var path in paths)
+        foreach (var path in paths.Where(p => !string.IsNullOrWhiteSpace(p)))
         {
             var item = new LaunchItem
             {
                 Name = Path.GetFileNameWithoutExtension(path),
                 Type = InferType(path),
-                Target = path,
-                IsDesktopPinned = true,
-                DesktopIconX = dropPoint.X + offset,
-                DesktopIconY = dropPoint.Y + offset
+                Target = ShortcutStore.Adopt(path),
+                IsDesktopPinned = true
             };
 
+            // Already here under this name, pointing at this shortcut: nothing to add.
+            if (GroupNames.FindSameShortcut(_category, item) is not null)
+            {
+                continue;
+            }
+
+            item.Name = GroupNames.MakeUnique(_category, item.Name);
+
+            if (dropPoint is { } point)
+            {
+                item.DesktopIconX = point.X + offset;
+                item.DesktopIconY = point.Y + offset;
+                offset += 16;
+            }
+
             _category.Items.Add(item);
-            offset += 16;
+            added.Add(item);
         }
 
-        FinishStructuralChange();
+        if (dropPoint is null)
+        {
+            PlaceInFreeCells(added);
+        }
+
+        if (added.Count > 0)
+        {
+            FinishStructuralChange();
+            SelectEntries(added);
+        }
+
+        return added;
+    }
+
+    /// <summary>
+    /// Gives each item the first grid cell no icon occupies yet, in reading order, so a
+    /// paste of several shortcuts lands as a tidy row instead of a pile at the corner.
+    /// </summary>
+    private void PlaceInFreeCells(IReadOnlyCollection<LaunchItem> items)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var usableWidth = _category.DesktopWidth - (PaddingX * 2);
+        var columns = Math.Max(1, (int)(usableWidth / (HStride * _category.DesktopIconScale)));
+
+        var occupied = new List<Rect>();
+        foreach (var entry in GroupEntries.Enumerate(_category))
+        {
+            var (x, y) = entry switch
+            {
+                LaunchItem i when !items.Contains(i) => (i.DesktopIconX, i.DesktopIconY),
+                MenuCategory f => (f.IconX, f.IconY),
+                _ => ((double?)null, (double?)null)
+            };
+
+            if (x is not null && y is not null)
+            {
+                occupied.Add(new Rect(x.Value, y.Value, TileSize - 8, TileSize - 8));
+            }
+        }
+
+        var cell = 0;
+        foreach (var item in items)
+        {
+            while (true)
+            {
+                var x = PaddingX + ((cell % columns) * HStride);
+                var y = PaddingY + ((cell / columns) * VStride);
+                var candidate = new Rect(x, y, TileSize - 8, TileSize - 8);
+                cell++;
+
+                if (!occupied.Any(r => r.IntersectsWith(candidate)))
+                {
+                    item.DesktopIconX = x;
+                    item.DesktopIconY = y;
+                    occupied.Add(candidate);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void SelectEntries(IEnumerable<object> entries)
+    {
+        _selectedEntries.Clear();
+        foreach (var entry in entries)
+        {
+            _selectedEntries.Add(entry);
+        }
+
+        RefreshSelectionVisuals();
+        if (_selectedEntries.FirstOrDefault() is { } first)
+        {
+            ScrollEntryIntoView(first);
+        }
+    }
+
+    /// <summary>Picks several files at once — typically a folder full of shortcuts, Ctrl+A — and adds them all.</summary>
+    private void ImportShortcuts()
+    {
+        var paths = PickShortcutFiles(this);
+        if (paths.Length > 0)
+        {
+            AddIncomingPaths(paths);
+        }
+    }
+
+    /// <summary>
+    /// A multi-select file picker that returns the shortcut files themselves, not what they
+    /// point at (<c>DereferenceLinks = false</c>) — the shortcut carries the arguments,
+    /// working folder and icon the group should keep.
+    /// </summary>
+    internal static string[] PickShortcutFiles(Window? owner)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Multiselect = true,
+            DereferenceLinks = false,
+            Title = LocalizationService.Get("group.importShortcutsTitle"),
+            Filter = LocalizationService.Get("group.importShortcutsFilter"),
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)
+        };
+
+        return dialog.ShowDialog(owner) == true ? dialog.FileNames : [];
     }
 
     private static LaunchItemType InferType(string path)
@@ -2115,6 +2424,58 @@ internal sealed class DesktopGroupWindow : Window
 
         RefreshFolderTile();
         RefreshCutVisuals();
+        UpdateCanvasExtent();
+        ReapplySearchEmphasis();
+    }
+
+    /// <summary>
+    /// Sizes the canvas to reach the furthest icon, so the scroller offers exactly the
+    /// room the icons need — and never less than the visible area, so an empty stretch
+    /// of the panel still takes clicks, marquee drags and the right-click menu.
+    /// </summary>
+    private void UpdateCanvasExtent()
+    {
+        if (_scroller is null)
+        {
+            return;
+        }
+
+        var scale = _category.DesktopIconScale > 0 ? _category.DesktopIconScale : 1.0;
+        var right = 0.0;
+        var bottom = 0.0;
+        foreach (var tile in _tilesByEntry.Values)
+        {
+            var left = Canvas.GetLeft(tile);
+            var top = Canvas.GetTop(tile);
+            var width = tile.ActualWidth > 0 ? tile.ActualWidth : TileSize - 8;
+            var height = tile.ActualHeight > 0 ? tile.ActualHeight : TileSize;
+            right = Math.Max(right, (double.IsNaN(left) ? 0 : left) + width);
+            bottom = Math.Max(bottom, (double.IsNaN(top) ? 0 : top) + height);
+        }
+
+        var contentWidth = right + (PaddingX / 2);
+        var contentHeight = bottom + PaddingY;
+
+        // The room left once the other direction's scrollbar, if it will be shown, takes its
+        // strip. Filling the full width before the vertical bar appeared is what used to
+        // leave a few pixels of overflow — and a pointless horizontal scrollbar.
+        var needsVertical = contentHeight * scale > _scroller.ActualHeight;
+        var needsHorizontal = contentWidth * scale > _scroller.ActualWidth - (needsVertical ? SystemParameters.VerticalScrollBarWidth : 0);
+        var roomWidth = Math.Max(0, _scroller.ActualWidth - (needsVertical ? SystemParameters.VerticalScrollBarWidth : 0));
+        var roomHeight = Math.Max(0, _scroller.ActualHeight - (needsHorizontal ? SystemParameters.HorizontalScrollBarHeight : 0));
+
+        // Visible area first; a scrollbar appears only when an icon really reaches past it.
+        _canvas.Width = Math.Max(contentWidth, roomWidth / scale);
+        _canvas.Height = Math.Max(contentHeight, roomHeight / scale);
+    }
+
+    /// <summary>Scrolls the panel just enough to show this entry's icon.</summary>
+    private void ScrollEntryIntoView(object entry)
+    {
+        if (_tilesByEntry.TryGetValue(entry, out var tile))
+        {
+            tile.BringIntoView();
+        }
     }
 
     private void ToggleArrangeIconsAutomatically()
@@ -2289,6 +2650,11 @@ internal sealed class DesktopGroupWindow : Window
     /// "auto-arrange" would only ever reflect the moment it was clicked instead of
     /// following the group as it actually stands. Free placement (<see cref="IconArrangement.None"/>)
     /// just persists and repaints, same as before this existed.
+    ///
+    /// Free placement used to stop at "persist" and skip the repaint — and did not even
+    /// persist — so a shortcut pasted, dropped or created in a free-placement group only
+    /// showed up after something else happened to rebuild the tiles (sorting, resizing,
+    /// saving the settings). Both kinds now repaint and save from this one place.
     /// </summary>
     private void FinishStructuralChange()
     {
@@ -2301,6 +2667,13 @@ internal sealed class DesktopGroupWindow : Window
             _category.IconArrangement = IconArrangement.ByName;
             ArrangeInGrid(NameOrder());
         }
+        else
+        {
+            PopulateTiles();
+            _onLayoutChanged(_category);
+        }
+
+        _overlay?.Refresh();
     }
 
     /// <summary>
@@ -2849,6 +3222,41 @@ internal sealed class DesktopGroupWindow : Window
         var foldersToMove = entries.OfType<MenuCategory>().ToList();
         var itemsToMove = entries.OfType<LaunchItem>().ToList();
 
+        // Where the user let go, for a group that keeps icons where they are put; the
+        // coordinates they had in the source group mean nothing here. (An arranged group
+        // lays them out again below anyway.)
+        if (_category.IconArrangement == IconArrangement.None)
+        {
+            var offset = 0.0;
+            foreach (var moved in entries)
+            {
+                var x = Math.Max(PaddingX, canvasPoint.X - ((TileSize - 8) / 2) + offset);
+                var y = Math.Max(PaddingY, canvasPoint.Y - ((TileSize - 8) / 2) + offset);
+                switch (moved)
+                {
+                    case LaunchItem item:
+                        (item.DesktopIconX, item.DesktopIconY) = (x, y);
+                        break;
+                    case MenuCategory folder:
+                        (folder.IconX, folder.IconY) = (x, y);
+                        break;
+                }
+
+                offset += 16;
+            }
+        }
+
+        // Arriving from another group, a name may already be taken here.
+        foreach (var folder in foldersToMove)
+        {
+            folder.Name = GroupNames.MakeUnique(_category, folder.Name, folder);
+        }
+
+        foreach (var item in itemsToMove)
+        {
+            item.Name = GroupNames.MakeUnique(_category, item.Name, item);
+        }
+
         if (foldersToMove.Count > 0)
         {
             var insertIndex = Math.Clamp(targetSlotIndex, 0, _category.Categories.Count);
@@ -2898,7 +3306,11 @@ internal sealed class DesktopGroupWindow : Window
         tile.MouseLeave += (_, _) =>
         {
             AnimateScale(scale, 1.0);
-            if (tile is Panel panel && !_selectedEntries.Contains(entry))
+            if (IsSearchActive)
+            {
+                ReapplySearchEmphasis();
+            }
+            else if (tile is Panel panel && !_selectedEntries.Contains(entry))
             {
                 panel.Background = Brushes.Transparent;
             }
@@ -3019,6 +3431,7 @@ internal sealed class DesktopGroupWindow : Window
         }
 
         RefreshSelectionVisuals();
+        ScrollEntryIntoView(entry);
     }
 
     private void ClearSelection()
@@ -3045,99 +3458,16 @@ internal sealed class DesktopGroupWindow : Window
         }
     }
 
-    /// <summary>
-    /// A right-click's own "Remove" always used to act on just the tile under the mouse,
-    /// even with several tiles highlighted — the same click in Explorer acts on the
-    /// whole selection instead. Route through <see cref="RemoveSelectedEntries"/> when the
-    /// clicked entry is part of a multi-selection; otherwise this one tile is the whole
-    /// story, so its own single-item removal (with its own confirmation wording) applies.
-    /// </summary>
-    private void RemoveEntryRespectingSelection(object entry, Action removeSingle)
-    {
-        if (_selectedEntries.Count > 1 && _selectedEntries.Contains(entry))
-        {
-            RemoveSelectedEntries();
-            return;
-        }
-
-        removeSingle();
-    }
-
     private void RemoveSelectedEntries()
     {
-        if (_selectedEntries.Count == 0)
-        {
-            return;
-        }
-
-        // The Delete key answers to the same rule as the menu: a folder that still
-        // holds something is left alone rather than quietly taken with the selection.
-        var removable = _selectedEntries
-            .Where(entry => entry is not MenuCategory folder || GroupEntries.Count(folder) == 0)
-            .ToList();
-
-        if (removable.Count == 0)
-        {
-            MessageBox.Show(
-                this,
-                LocalizationService.Get("group.removeOnlyEmpty"),
-                LocalizationService.Get("common.appName"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
-        var names = string.Join(", ", removable.Select(GetEntryName));
-        var prompt = LocalizationService.Format("item.removeConfirm", names);
-        if (removable.Count < _selectedEntries.Count)
-        {
-            prompt += Environment.NewLine + Environment.NewLine + LocalizationService.Get("group.removeOnlyEmpty");
-        }
-
-        var confirmed = MessageBox.Show(
-            this,
-            prompt,
-            LocalizationService.Get("common.appName"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (confirmed != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
-        foreach (var entry in removable)
-        {
-            switch (entry)
-            {
-                case LaunchItem item:
-                    _category.Items.Remove(item);
-                    break;
-                case MenuCategory folder:
-                    _category.Categories.Remove(folder);
-                    if (_openSubfolders.TryGetValue(folder, out var openWindow))
-                    {
-                        openWindow.Close();
-                        _openSubfolders.Remove(folder);
-                    }
-
-                    break;
-            }
-        }
-
-        FinishStructuralChange();
+        RemoveEntries(_category, _selectedEntries.ToList(), this);
     }
 
     private void RenameSelectedEntry()
     {
-        switch (_selectedEntries.FirstOrDefault())
+        if (_selectedEntries.FirstOrDefault() is { } entry)
         {
-            case LaunchItem item:
-                RenameItem(item);
-                break;
-            case MenuCategory folder:
-                RenameFolder(folder);
-                break;
+            RenameEntry(_category, entry, this);
         }
     }
 
@@ -3178,6 +3508,26 @@ internal sealed class DesktopGroupWindow : Window
                 HorizontalAlignment = HorizontalAlignment.Center
             });
         }
+        else
+        {
+            // Never an empty slot: a caption with no picture above it reads as "the icon
+            // vanished". A warning glyph says the shortcut itself is the problem.
+            stack.Children.Add(new TextBlock
+            {
+                Text = "",
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = _theme.IconSize * 1.4,
+                Height = _theme.IconSize * 1.6,
+                Foreground = TileTextBrush(),
+                Opacity = 0.75,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+        }
+
+        if (IsTargetMissing(item))
+        {
+            stack.ToolTip = LocalizationService.Format("item.targetMissing", item.Target);
+        }
 
         var caption = new TextBlock
         {
@@ -3213,6 +3563,40 @@ internal sealed class DesktopGroupWindow : Window
             });
 
         return stack;
+    }
+
+    /// <summary>True when the item names a file or folder on disk that is no longer there.</summary>
+    internal static bool IsTargetMissing(LaunchItem item)
+    {
+        if (item.Type is LaunchItemType.Url or LaunchItemType.Command
+            || string.IsNullOrWhiteSpace(item.Target)
+            || item.Target.Contains("://")
+            || !Path.IsPathRooted(item.Target))
+        {
+            return false;
+        }
+
+        return IconCacheService.ResolveFullPath(item.Target) is null;
+    }
+
+    /// <summary>Points a shortcut whose file disappeared at another one, chosen by the user.</summary>
+    private void LocateMissingTarget(LaunchItem item)
+    {
+        var dialog = new OpenFileDialog
+        {
+            DereferenceLinks = false,
+            Title = LocalizationService.Format("item.locateTargetTitle", item.Name),
+            Filter = LocalizationService.Get("group.importShortcutsFilter")
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        item.Target = ShortcutStore.Adopt(dialog.FileName);
+        item.Type = InferType(dialog.FileName);
+        FinishStructuralChange();
     }
 
     private void AddFolderTile(MenuCategory folder, double x, double y)
@@ -3415,6 +3799,8 @@ internal sealed class DesktopGroupWindow : Window
 
             index++;
         }
+
+        UpdateCanvasExtent();
     }
 
     private void OnResizeMouseUp(object sender, MouseButtonEventArgs e)
@@ -3675,6 +4061,8 @@ internal sealed class DesktopGroupWindow : Window
                     RefreshSelectionVisuals();
                 }
 
+                ScrollEntryIntoView(targetEntry);
+
                 e.Handled = true;
                 return;
             }
@@ -3698,9 +4086,11 @@ internal sealed class DesktopGroupWindow : Window
     /// they are this app's own grouping, not a real folder on disk, so there is nothing
     /// to hand the clipboard.
     /// </summary>
-    private void CopySelectedToClipboard(bool cut)
+    private void CopySelectedToClipboard(bool cut) => CopyEntriesToClipboard(_selectedEntries.ToList(), cut);
+
+    internal void CopyEntriesToClipboard(IReadOnlyCollection<object> entries, bool cut)
     {
-        var candidates = _selectedEntries
+        var candidates = entries
             .OfType<LaunchItem>()
             .Select(item => (item, path: ShellCommands.TryResolveTarget(item, out var resolved) ? resolved : null))
             .Where(x => x.path is not null)
@@ -3762,28 +4152,10 @@ internal sealed class DesktopGroupWindow : Window
             return;
         }
 
-        var offset = 0.0;
-        foreach (var path in paths)
-        {
-            var item = new LaunchItem
-            {
-                Name = Path.GetFileNameWithoutExtension(path),
-                Type = InferType(path),
-                Target = path,
-                IsDesktopPinned = true,
-                DesktopIconX = PaddingX + offset,
-                DesktopIconY = PaddingY + offset
-            };
-
-            _category.Items.Add(item);
-            offset += 16;
-        }
-
-        // This paste is what finally consumes a pending Ctrl+X: only now does the
-        // source group actually let go of it, whether the paste landed here or in
-        // another group in this same app.
+        // A cut from another group of this app is a move, not a second copy: let the
+        // source go first, so the name it held is free for the item arriving here.
         FinalizePendingCuts(paths);
-        FinishStructuralChange();
+        AddIncomingPaths(paths);
     }
 
     private sealed record PendingCut(DesktopGroupWindow Owner, LaunchItem Item, string Path);

@@ -11,8 +11,8 @@ namespace SmartDockGroups.App.Services;
 /// </summary>
 internal sealed class SingleInstanceCoordinator : IDisposable
 {
-    private const string MutexName = "SmartDockGroups.SingleInstance";
-    private const string PipeName = "SmartDockGroups.DesktopAction";
+    private static readonly string MutexName = "SmartDockGroups.SingleInstance" + ApplicationPaths.InstanceSuffix;
+    private static readonly string PipeName = "SmartDockGroups.DesktopAction" + ApplicationPaths.InstanceSuffix;
 
     private readonly Mutex _mutex;
     private CancellationTokenSource? _listenerCancellation;

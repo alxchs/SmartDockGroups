@@ -1,29 +1,21 @@
-<theming:ModernWindow x:Class="SmartDockGroups.App.Settings.TextPromptWindow"
+<theming:ModernWindow x:Class="SmartDockGroups.App.Settings.ImportTargetWindow"
                       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                       xmlns:theming="clr-namespace:SmartDockGroups.App.Theming"
                       xmlns:loc="clr-namespace:SmartDockGroups.App.Localization"
                       Title="{loc:Loc common.appName}"
-                      Width="400"
+                      Width="420"
                       SizeToContent="Height"
                       WindowStartupLocation="Manual"
                       ResizeMode="NoResize"
                       ShowInTaskbar="False">
-    <!--
-        The window shell already supplies its own 16px content padding and the 14px
-        shadow gutter, so this panel adds no margin of its own; the previous fixed
-        height fought both and pushed the buttons out of view.
-    -->
     <StackPanel>
-        <TextBlock x:Name="PromptText" Style="{StaticResource AppFieldLabel}" />
-        <TextBox x:Name="ValueBox" />
-        <!-- Accent, not the danger swatch: the product never paints anything red. -->
-        <TextBlock x:Name="ErrorText"
-                   Visibility="Collapsed"
-                   TextWrapping="Wrap"
-                   FontWeight="SemiBold"
-                   Foreground="{DynamicResource AppAccentBrush}"
-                   Margin="0,8,0,0" />
+        <TextBlock x:Name="PromptText" Style="{StaticResource AppFieldLabel}" TextWrapping="Wrap" />
+        <ComboBox x:Name="GroupBox" ItemTemplate="{StaticResource AppLabelItemTemplate}" />
+        <StackPanel x:Name="NewGroupPanel" Visibility="Collapsed" Margin="0,12,0,0">
+            <TextBlock Text="{loc:Loc group.namePrompt}" Style="{StaticResource AppFieldLabel}" />
+            <TextBox x:Name="NewGroupNameBox" />
+        </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="{loc:Loc common.ok}"
                     Style="{StaticResource AppPrimaryButton}"

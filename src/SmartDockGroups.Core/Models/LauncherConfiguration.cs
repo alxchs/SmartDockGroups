@@ -7,6 +7,9 @@ public sealed class LauncherConfiguration : IMenuContainer
     public MenuTheme Theme { get; set; } = new();
     public LauncherBehavior Behavior { get; set; } = new();
 
+    /// <summary>The non-colour look new groups start with. See <see cref="Models.GroupDefaults"/>.</summary>
+    public GroupDefaults GroupDefaults { get; set; } = new();
+
     public LauncherConfiguration Clone()
     {
         return new LauncherConfiguration
@@ -14,7 +17,8 @@ public sealed class LauncherConfiguration : IMenuContainer
             Items = [.. Items.Select(item => item.Clone())],
             Categories = [.. Categories.Select(category => category.Clone())],
             Theme = Theme.Clone(),
-            Behavior = Behavior.Clone()
+            Behavior = Behavior.Clone(),
+            GroupDefaults = GroupDefaults.Clone()
         };
     }
 
@@ -26,6 +30,7 @@ public sealed class LauncherConfiguration : IMenuContainer
         Categories.AddRange(source.Categories.Select(category => category.Clone()));
         Theme = source.Theme.Clone();
         Behavior = source.Behavior.Clone();
+        GroupDefaults = source.GroupDefaults.Clone();
     }
 
     public static LauncherConfiguration CreateDefault()

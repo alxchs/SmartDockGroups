@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Forms;
@@ -48,7 +49,16 @@ public partial class App : Application, IDesktopGroupCommands
 
         _configurationStore = new ConfigurationStore(ApplicationPaths.ConfigFilePath);
         _configuration = _configurationStore.Load();
-        if (DesktopOrganizerService.EnsureIds(_configuration))
+        var idsAdded = DesktopOrganizerService.EnsureIds(_configuration);
+
+        // Rewrites item targets and names, so the file as it was is kept beside it first.
+        var repaired = ShortcutStore.AdoptAndRecoverAll(_configuration) | GroupNames.EnsureUnique(_configuration);
+        if (repaired)
+        {
+            BackupConfiguration("before-repair");
+        }
+
+        if (idsAdded || repaired)
         {
             _configurationStore.Save(_configuration);
         }
@@ -113,7 +123,10 @@ public partial class App : Application, IDesktopGroupCommands
             }
         };
 
-        DesktopContextMenuRegistration.Register();
+        if (!ApplicationPaths.IsIsolatedInstance)
+        {
+            DesktopContextMenuRegistration.Register();
+        }
         _singleInstance.StartListening(action => Dispatcher.Invoke(() => HandleDesktopAction(action)));
 
         // This very launch can itself carry a verb — the desktop context menu when the
@@ -122,6 +135,23 @@ public partial class App : Application, IDesktopGroupCommands
         if (startupAction is not null)
         {
             HandleDesktopAction(startupAction);
+        }
+    }
+
+    /// <summary>A dated copy of config.json next to it. Best-effort: failing to back up never blocks startup.</summary>
+    private static void BackupConfiguration(string reason)
+    {
+        try
+        {
+            var source = ApplicationPaths.ConfigFilePath;
+            if (File.Exists(source))
+            {
+                File.Copy(source, $"{source}.{reason}-{DateTime.Now:yyyyMMdd-HHmmss}.bak", overwrite: false);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Debug.WriteLine($"[App] Config backup failed: {ex.Message}");
         }
     }
 
@@ -257,23 +287,47 @@ public partial class App : Application, IDesktopGroupCommands
         SaveAndReloadGroups();
     }
 
-    void IDesktopGroupCommands.ApplyVisualToAllGroups(MenuCategory source)
+    void IDesktopGroupCommands.ShareVisual(MenuCategory source, VisualAspects aspects, bool asDefault)
     {
-        foreach (var group in DesktopOrganizerService.AllDesktopGroups(_configuration!))
+        if (!asDefault)
         {
-            if (!ReferenceEquals(group, source))
+            foreach (var group in DesktopOrganizerService.AllDesktopGroups(_configuration!))
             {
-                group.CopyVisualFrom(source);
+                if (!ReferenceEquals(group, source))
+                {
+                    group.CopyVisualFrom(source, aspects, _configuration!.Theme);
+                }
+            }
+
+            SaveAndReloadGroups();
+            return;
+        }
+
+        if (aspects.HasFlag(VisualAspects.BackgroundColor))
+        {
+            // The default theme is also what every group without an override of its own
+            // is showing right now. Those groups keep their current look explicitly, so
+            // that only groups created from here on pick up the new default.
+            var previous = _configuration!.Theme;
+            foreach (var group in DesktopOrganizerService.AllDesktopGroups(_configuration))
+            {
+                group.ThemeOverride ??= previous.Clone();
+            }
+
+            var sourceTheme = source.ThemeOverride ?? previous;
+            if (aspects == VisualAspects.All)
+            {
+                _configuration.Theme = sourceTheme.Clone();
+            }
+            else
+            {
+                _configuration.Theme = previous.Clone();
+                _configuration.Theme.BackgroundColor = sourceTheme.BackgroundColor;
+                _configuration.Theme.TextColor = sourceTheme.TextColor;
             }
         }
 
-        SaveAndReloadGroups();
-    }
-
-    void IDesktopGroupCommands.SetAsDefaultVisual(MenuCategory source)
-    {
-        // Becomes what groups without an override show, and what new ones start from.
-        _configuration!.Theme = (source.ThemeOverride ?? _configuration.Theme).Clone();
+        _configuration!.GroupDefaults.TakeFrom(source, aspects);
         SaveAndReloadGroups();
     }
 
@@ -317,17 +371,47 @@ public partial class App : Application, IDesktopGroupCommands
         RefreshDesktopGroups();
     }
 
-    private void CreateDesktopGroup()
+    void IDesktopGroupCommands.CreateGroup() => CreateDesktopGroup();
+
+    /// <summary>
+    /// Asks for a name next to the pointer and opens the new group right there, rather
+    /// than in the top-left corner of the primary monitor — on a large screen that corner
+    /// can be a long way from where the user was working.
+    /// </summary>
+    private MenuCategory? CreateDesktopGroup()
     {
-        var prompt = new TextPromptWindow(LocalizationService.Get("group.namePrompt"), string.Empty);
+        var cursor = System.Windows.Forms.Cursor.Position;
+        var prompt = new TextPromptWindow(LocalizationService.Get("group.namePrompt"), string.Empty, cursor);
         if (prompt.ShowDialog() != true)
         {
-            return;
+            return null;
         }
 
-        _configuration!.Categories.Add(new MenuCategory { Name = prompt.Value, IsDesktopGroup = true });
+        var group = new MenuCategory { Name = prompt.Value, IsDesktopGroup = true, Id = Guid.NewGuid().ToString("N") };
+        _configuration!.GroupDefaults.ApplyTo(group);
+
+        var position = NewGroupPosition(cursor, group.DesktopWidth, group.DesktopHeight);
+        group.DesktopX = position.X;
+        group.DesktopY = position.Y;
+
+        _configuration.Categories.Add(group);
         _configurationStore!.Save(_configuration);
         RefreshDesktopGroups();
+        return group;
+    }
+
+    /// <summary>Top-left, in DIPs, that puts a group of this size just under the pointer and fully on its monitor.</summary>
+    private static System.Windows.Point NewGroupPosition(System.Drawing.Point cursor, double width, double height)
+    {
+        // Group windows are positioned in system-DPI units (the app is system DPI aware).
+        var scale = PromptPositioning.GetSystemDpiScale();
+        var area = Screen.FromPoint(cursor).WorkingArea;
+        var workArea = new Rect(area.Left / scale, area.Top / scale, area.Width / scale, area.Height / scale);
+        return PromptPositioning.CalculateNearCursorPosition(
+            workArea,
+            new System.Windows.Point(cursor.X / scale, cursor.Y / scale),
+            width,
+            height);
     }
 
     private void ShowTrayMenu()
@@ -342,7 +426,7 @@ public partial class App : Application, IDesktopGroupCommands
             StartupRegistration.IsEnabled(),
             _desktopOrganizer!.HasOpenGroups,
             OpenSettingsWindow,
-            CreateDesktopGroup,
+            () => CreateDesktopGroup(),
             _desktopOrganizer.ToggleCollapseAll,
             _desktopOrganizer.GatherAll,
             () =>
@@ -410,17 +494,50 @@ public partial class App : Application, IDesktopGroupCommands
 
         _settingsWindow = new SettingsWindow(_configuration!);
         _settingsWindow.ConfigurationSaved += OnConfigurationSaved;
+        _settingsWindow.ImportShortcutsRequested += OnImportShortcutsRequested;
         _settingsWindow.Closed += (_, _) =>
         {
             _settingsWindow.ConfigurationSaved -= OnConfigurationSaved;
+            _settingsWindow.ImportShortcutsRequested -= OnImportShortcutsRequested;
             _settingsWindow = null;
         };
         _settingsWindow.Show();
         BringWindowToFront(_settingsWindow);
     }
 
+    /// <summary>Adds shortcuts picked in the settings window to a group, opening (or creating) it first.</summary>
+    private void OnImportShortcutsRequested(string[] paths, MenuCategory? target, string newGroupName)
+    {
+        if (target is null)
+        {
+            target = new MenuCategory { Name = newGroupName, IsDesktopGroup = true, Id = Guid.NewGuid().ToString("N") };
+            _configuration!.GroupDefaults.ApplyTo(target);
+            var position = NewGroupPosition(System.Windows.Forms.Cursor.Position, target.DesktopWidth, target.DesktopHeight);
+            target.DesktopX = position.X;
+            target.DesktopY = position.Y;
+            _configuration.Categories.Add(target);
+        }
+
+        target.IsClosed = false;
+        _configurationStore!.Save(_configuration!);
+        RefreshDesktopGroups();
+
+        var added = _desktopOrganizer!.WindowFor(target)?.AddIncomingPaths(paths).Count ?? 0;
+        _desktopOrganizer.FocusOpenGroup(target);
+        _trayIcon?.ShowBalloonTip(
+            3000,
+            LocalizationService.Get("common.appName"),
+            LocalizationService.Format("settings.importDone", added, target.Name),
+            ToolTipIcon.Info);
+    }
+
     private void OnConfigurationSaved(object? sender, EventArgs e)
     {
+        // An imported configuration can bring shortcut files from another machine or an
+        // older version: make them independent and the names unique, as at startup.
+        ShortcutStore.AdoptAndRecoverAll(_configuration!);
+        GroupNames.EnsureUnique(_configuration!);
+        DesktopOrganizerService.EnsureIds(_configuration!);
         _configurationStore!.Save(_configuration!);
         _hotkeyService!.Apply(_configuration!.Behavior);
         RefreshDesktopGroups();

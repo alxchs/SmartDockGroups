@@ -26,7 +26,7 @@
 Existem duas camadas, e as duas rodam antes de qualquer publicação:
 
 ```
-dotnet test tests/SmartDockGroups.Tests          # 47 assercoes, ~1 s
+dotnet test tests/SmartDockGroups.Tests          # 73 assercoes, ~3 s
 dotnet build -c Release tests/GroupProbe     # sonda de caracterizacao
 ```
 
@@ -43,12 +43,15 @@ python tests/compare_reports.py tests/baseline/report-master.json <pasta>/report
 **Regras que valem para qualquer agente que mexer aqui, inclusive a agy:**
 
 1. **Toque em comportamento de grupo ⇒ rode a sonda e cole a saída do comparador.** "Compila"
-   não é prova. Divergência inesperada nos 316 campos é reprovação, não detalhe.
+   não é prova. Divergência inesperada nos 372 campos (eram 316 antes da reorganização dos
+   menus em 2026-09-30) é reprovação, não detalhe.
 2. **Valide o oráculo antes de usá-lo.** Antes de comparar dois builds, rode a sonda duas
    vezes contra o *mesmo* build e confirme `IDENTICO`. Um oráculo que oscila reprova ou aprova
    por sorte. Já aconteceu aqui: a primeira sonda dava 283 campos numa execução e 316 na
    seguinte, porque esperava submenu por `sleep` fixo em vez do estado reportado pelo menu.
-3. **Nunca mexa no `%AppData%\SmartDockGroups\config.json` sem backup conferido por hash**, e
+3. **Prefira a pasta de dados isolada** (`SMARTDOCKGROUPS_DATA_DIR`, padrão da sonda desde
+   2026-09-30): o app roda ao lado da instância real sem tocar na configuração dela.
+   **Nunca mexa no `%AppData%\SmartDockGroups\config.json` sem backup conferido por hash**, e
    confira a restauração no fim. A sonda já faz isso e **aborta antes de abrir qualquer coisa**
    se o backup não bater — copie esse padrão, não o improvise.
 4. **Sonda de Win32 se escreve em C#, não em PowerShell.** O marshalling do PowerShell

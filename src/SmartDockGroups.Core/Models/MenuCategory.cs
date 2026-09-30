@@ -70,15 +70,48 @@ public sealed class MenuCategory : IMenuContainer
     /// Takes on another group's appearance — theme, opacities, backdrop and icon spacing —
     /// while leaving its own contents, position and size alone.
     /// </summary>
-    public void CopyVisualFrom(MenuCategory source)
+    public void CopyVisualFrom(MenuCategory source) => CopyVisualFrom(source, VisualAspects.All, new MenuTheme());
+
+    /// <summary>
+    /// Takes on only the chosen parts of another group's look, leaving the rest as they
+    /// are. <paramref name="defaultTheme"/> is the theme either group shows when it has no
+    /// override of its own — needed to copy just the colour onto a group that has none yet.
+    /// </summary>
+    public void CopyVisualFrom(MenuCategory source, VisualAspects aspects, MenuTheme defaultTheme)
     {
-        ThemeOverride = source.ThemeOverride?.Clone();
-        AreaOpacity = source.AreaOpacity;
-        TitleOpacity = source.TitleOpacity;
-        DesktopBackgroundImagePath = source.DesktopBackgroundImagePath;
-        DesktopIconScale = source.DesktopIconScale;
-        IconHGap = source.IconHGap;
-        IconVGap = source.IconVGap;
+        if (aspects == VisualAspects.All)
+        {
+            ThemeOverride = source.ThemeOverride?.Clone();
+        }
+        else if (aspects.HasFlag(VisualAspects.BackgroundColor))
+        {
+            var sourceTheme = source.ThemeOverride ?? defaultTheme;
+            ThemeOverride ??= defaultTheme.Clone();
+            ThemeOverride.BackgroundColor = sourceTheme.BackgroundColor;
+            ThemeOverride.TextColor = sourceTheme.TextColor;
+        }
+
+        if (aspects.HasFlag(VisualAspects.BackgroundImage))
+        {
+            DesktopBackgroundImagePath = source.DesktopBackgroundImagePath;
+        }
+
+        if (aspects.HasFlag(VisualAspects.Opacity))
+        {
+            AreaOpacity = source.AreaOpacity;
+            TitleOpacity = source.TitleOpacity;
+        }
+
+        if (aspects.HasFlag(VisualAspects.IconSize))
+        {
+            DesktopIconScale = source.DesktopIconScale;
+        }
+
+        if (aspects.HasFlag(VisualAspects.IconSpacing))
+        {
+            IconHGap = source.IconHGap;
+            IconVGap = source.IconVGap;
+        }
     }
 
     public MenuCategory Clone()

@@ -11,12 +11,15 @@ namespace SmartDockGroups.App.Settings;
 public partial class LaunchItemEditWindow : ModernWindow
 {
     private readonly LaunchItem _item;
+    private readonly Func<string, string?>? _validateName;
 
-    public LaunchItemEditWindow(LaunchItem item)
+    /// <param name="validateName">Why a name cannot be used (already taken in the group), or null when it can.</param>
+    public LaunchItemEditWindow(LaunchItem item, Func<string, string?>? validateName = null)
     {
         InitializeComponent();
 
         _item = item;
+        _validateName = validateName;
 
         TypeBox.ItemsSource = Enum.GetValues<LaunchItemType>();
         ExecutionModeBox.ItemsSource = Enum.GetValues<ExecutionMode>();
@@ -75,6 +78,14 @@ public partial class LaunchItemEditWindow : ModernWindow
                 LocalizationService.Get("common.appName"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
+            return;
+        }
+
+        if (_validateName?.Invoke(NameBox.Text.Trim()) is { } problem)
+        {
+            MessageBox.Show(this, problem, LocalizationService.Get("common.appName"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            NameBox.Focus();
+            NameBox.SelectAll();
             return;
         }
 

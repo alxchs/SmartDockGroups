@@ -10,13 +10,17 @@ namespace SmartDockGroups.App.Desktop;
 /// </summary>
 internal interface IDesktopGroupCommands
 {
+    /// <summary>Asks for a name and creates a new, empty group where the mouse is.</summary>
+    void CreateGroup();
+
     void Duplicate(MenuCategory source);
 
-    /// <summary>Copies the source group's look onto every other desktop group.</summary>
-    void ApplyVisualToAllGroups(MenuCategory source);
-
-    /// <summary>Makes the source group's look the theme new groups start from.</summary>
-    void SetAsDefaultVisual(MenuCategory source);
+    /// <summary>
+    /// Hands the chosen aspects of the source group's look to every other desktop group,
+    /// or (<paramref name="asDefault"/>) makes them what new groups start with. Only the
+    /// chosen aspects move: sharing the image leaves each group's colour alone, and so on.
+    /// </summary>
+    void ShareVisual(MenuCategory source, VisualAspects aspects, bool asDefault);
 
     /// <summary>Uses the Windows wallpaper as the background of one group, or of all of them.</summary>
     void ApplyWallpaper(MenuCategory? target);

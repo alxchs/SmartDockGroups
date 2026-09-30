@@ -1,13 +1,13 @@
 {
   "label": "master",
-  "exeFileVersion": "1.1.1.0",
+  "exeFileVersion": "1.1.1.2",
   "fixture": "probe-config.json",
   "groupWindowCount": 2,
   "windows": [
     {
       "assumedGroup": "Alpha Panel",
-      "class": "HwndWrapper[SmartDockGroups.App;;\u003Cguid\u003E]",
-      "title": "",
+      "class": "HwndWrapper[SmartDockGroups.App;;<guid>]",
+      "title": "Alpha Panel",
       "rect": {
         "left": 150,
         "top": 150,
@@ -20,12 +20,12 @@
         "layered": true,
         "transparent": false
       },
-      "screenshotSha256": "F1EAFDC44051441564E1C4E6648AE3B7AD079F89B8FD6F2A945963AE800A645D"
+      "screenshotSha256": "8301BC199535F405095313F0374121B3C202B0F80700C1772AF65272339AEF15"
     },
     {
       "assumedGroup": "Beta Folder",
-      "class": "HwndWrapper[SmartDockGroups.App;;\u003Cguid\u003E]",
-      "title": "",
+      "class": "HwndWrapper[SmartDockGroups.App;;<guid>]",
+      "title": "Beta Folder",
       "rect": {
         "left": 150,
         "top": 1050,
@@ -63,33 +63,133 @@
         },
         {
           "depth": 0,
-          "name": "Paste\tCtrl\u002BV",
-          "enabled": false
-        },
-        {
-          "depth": 0,
-          "name": "Arrange icons automatically",
+          "name": "Import shortcuts...",
           "enabled": true
         },
         {
           "depth": 0,
-          "name": "Icon size",
+          "name": "Paste\tCtrl+V",
+          "enabled": true
+        },
+        {
+          "depth": 0,
+          "name": "View",
           "enabled": true,
           "children": [
             {
               "depth": 1,
-              "name": "Small",
+              "name": "Style: app folder",
               "enabled": true
             },
             {
               "depth": 1,
-              "name": "Medium",
+              "name": "Arrange icons automatically",
               "enabled": true
             },
             {
               "depth": 1,
-              "name": "Large",
+              "name": "Icon size",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "Small",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "Medium",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "Large",
+                  "enabled": true
+                }
+              ]
+            },
+            {
+              "depth": 1,
+              "name": "Icon spacing",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "",
+                  "enabled": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "depth": 0,
+          "name": "Appearance",
+          "enabled": true,
+          "children": [
+            {
+              "depth": 1,
+              "name": "Background color...",
               "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Background image...",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Use desktop wallpaper as background",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Remove background image",
+              "enabled": false
+            },
+            {
+              "depth": 1,
+              "name": "Opacity",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "",
+                  "enabled": true
+                }
+              ]
+            },
+            {
+              "depth": 1,
+              "name": "Share with the other groups",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "Apply to all groups now",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "Use as default for new groups",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "Use wallpaper on all groups",
+                  "enabled": true
+                }
+              ]
             }
           ]
         },
@@ -112,50 +212,28 @@
               "depth": 1,
               "name": "Send all groups to back",
               "enabled": true
-            }
-          ]
-        },
-        {
-          "depth": 0,
-          "name": "Style: app folder",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Count badge",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Background color...",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Background image...",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Remove background image",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Opacity",
-          "enabled": true,
-          "children": [
+            },
             {
               "depth": 1,
-              "name": "",
+              "name": "Bring all groups to this monitor (centered)",
               "enabled": true
             },
             {
               "depth": 1,
-              "name": "",
+              "name": "Send all groups to Monitor 1 (Primary, 2560x1392)",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Send all groups to Monitor 2 (1920x1032)",
               "enabled": true
             }
           ]
+        },
+        {
+          "depth": 0,
+          "name": "New group...",
+          "enabled": true
         },
         {
           "depth": 0,
@@ -169,33 +247,6 @@
         },
         {
           "depth": 0,
-          "name": "Use desktop wallpaper as background",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Appearance",
-          "enabled": true,
-          "children": [
-            {
-              "depth": 1,
-              "name": "Apply this look to all groups",
-              "enabled": true
-            },
-            {
-              "depth": 1,
-              "name": "Use this look as the default",
-              "enabled": true
-            },
-            {
-              "depth": 1,
-              "name": "Use wallpaper on all groups",
-              "enabled": true
-            }
-          ]
-        },
-        {
-          "depth": 0,
           "name": "Settings...",
           "enabled": true
         },
@@ -206,8 +257,8 @@
         },
         {
           "depth": 0,
-          "name": "Remove group",
-          "enabled": false
+          "name": "Remove group...",
+          "enabled": true
         }
       ]
     },
@@ -232,33 +283,133 @@
         },
         {
           "depth": 0,
-          "name": "Paste\tCtrl\u002BV",
-          "enabled": false
-        },
-        {
-          "depth": 0,
-          "name": "Arrange icons automatically",
+          "name": "Import shortcuts...",
           "enabled": true
         },
         {
           "depth": 0,
-          "name": "Icon size",
+          "name": "Paste\tCtrl+V",
+          "enabled": true
+        },
+        {
+          "depth": 0,
+          "name": "View",
           "enabled": true,
           "children": [
             {
               "depth": 1,
-              "name": "Small",
+              "name": "Style: app folder",
               "enabled": true
             },
             {
               "depth": 1,
-              "name": "Medium",
+              "name": "Arrange icons automatically",
               "enabled": true
             },
             {
               "depth": 1,
-              "name": "Large",
+              "name": "Icon size",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "Small",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "Medium",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "Large",
+                  "enabled": true
+                }
+              ]
+            },
+            {
+              "depth": 1,
+              "name": "Icon spacing",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "",
+                  "enabled": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "depth": 0,
+          "name": "Appearance",
+          "enabled": true,
+          "children": [
+            {
+              "depth": 1,
+              "name": "Background color...",
               "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Background image...",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Use desktop wallpaper as background",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Remove background image",
+              "enabled": false
+            },
+            {
+              "depth": 1,
+              "name": "Opacity",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "",
+                  "enabled": true
+                }
+              ]
+            },
+            {
+              "depth": 1,
+              "name": "Share with the other groups",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "Apply to all groups now",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "Use as default for new groups",
+                  "enabled": true
+                },
+                {
+                  "depth": 2,
+                  "name": "Use wallpaper on all groups",
+                  "enabled": true
+                }
+              ]
             }
           ]
         },
@@ -281,50 +432,28 @@
               "depth": 1,
               "name": "Send all groups to back",
               "enabled": true
-            }
-          ]
-        },
-        {
-          "depth": 0,
-          "name": "Style: app folder",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Count badge",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Background color...",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Background image...",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Remove background image",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Opacity",
-          "enabled": true,
-          "children": [
+            },
             {
               "depth": 1,
-              "name": "",
+              "name": "Bring all groups to this monitor (centered)",
               "enabled": true
             },
             {
               "depth": 1,
-              "name": "",
+              "name": "Send all groups to Monitor 1 (Primary, 2560x1392)",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Send all groups to Monitor 2 (1920x1032)",
               "enabled": true
             }
           ]
+        },
+        {
+          "depth": 0,
+          "name": "New group...",
+          "enabled": true
         },
         {
           "depth": 0,
@@ -338,33 +467,6 @@
         },
         {
           "depth": 0,
-          "name": "Use desktop wallpaper as background",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Appearance",
-          "enabled": true,
-          "children": [
-            {
-              "depth": 1,
-              "name": "Apply this look to all groups",
-              "enabled": true
-            },
-            {
-              "depth": 1,
-              "name": "Use this look as the default",
-              "enabled": true
-            },
-            {
-              "depth": 1,
-              "name": "Use wallpaper on all groups",
-              "enabled": true
-            }
-          ]
-        },
-        {
-          "depth": 0,
           "name": "Settings...",
           "enabled": true
         },
@@ -375,8 +477,8 @@
         },
         {
           "depth": 0,
-          "name": "Remove group",
-          "enabled": false
+          "name": "Remove group...",
+          "enabled": true
         }
       ]
     }
@@ -385,7 +487,7 @@
     "Categories": [
       {
         "Name": "Alpha Panel",
-        "Id": "\u003Cid-0\u003E",
+        "Id": "<id-0>",
         "Categories": [],
         "Items": [
           {
@@ -436,11 +538,13 @@
         "AreaOpacity": 1,
         "TitleOpacity": 1,
         "DisplayMode": "Panel",
+        "IconHGap": 10,
+        "IconVGap": 10,
         "IconArrangement": "ByName"
       },
       {
         "Name": "Beta Folder",
-        "Id": "\u003Cid-1\u003E",
+        "Id": "<id-1>",
         "Categories": [],
         "Items": [
           {
@@ -511,6 +615,7 @@
       "RestoreGroupsHotkeyKey": "D",
       "AppTheme": "Dark",
       "Language": "en"
-    }
+    },
+    "GroupDefaults": {}
   }
 }

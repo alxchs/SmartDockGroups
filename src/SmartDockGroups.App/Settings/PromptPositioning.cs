@@ -142,10 +142,33 @@ internal static class PromptPositioning
             physicalRect.Height / scaleY);
     }
 
+    /// <summary>
+    /// Top-left for a window that should open where the user is looking: centred
+    /// horizontally on the pointer and just below it, then pushed back inside the work
+    /// area when it would spill over an edge. On a very large monitor the middle of the
+    /// screen can be a long way from where the click happened; this keeps the prompt
+    /// under the hand that asked for it. Units are whatever the arguments are in.
+    /// </summary>
+    public static Point CalculateNearCursorPosition(Rect workArea, Point cursor, double windowWidth, double windowHeight, double gap = 12)
+    {
+        var x = cursor.X - (windowWidth / 2);
+        var y = cursor.Y + gap;
+
+        x = windowWidth >= workArea.Width
+            ? workArea.Left
+            : Math.Clamp(x, workArea.Left, workArea.Right - windowWidth);
+        y = windowHeight >= workArea.Height
+            ? workArea.Top
+            : Math.Clamp(y, workArea.Top, workArea.Bottom - windowHeight);
+
+        return new Point(x, y);
+    }
+
     public static string LastLog = "";
 
     /// <summary>
-    /// Positions the window centered in the work area of the monitor where the cursor currently resides.
+    /// Positions the window next to the cursor (see <see cref="CalculateNearCursorPosition"/>),
+    /// always fully inside the work area of the monitor the cursor is on.
     /// </summary>
     public static void PositionWindowAtCursor(Window window, System.Drawing.Point? cursorOverride = null)
     {
@@ -173,40 +196,15 @@ internal static class PromptPositioning
         int physWidth = (int)Math.Round(widthDip * monitorDpiScale);
         int physHeight = (int)Math.Round(heightDip * monitorDpiScale);
 
-        int physX = screen.WorkingArea.Left + Math.Max(0, (screen.WorkingArea.Width - physWidth) / 2);
-        int physY = screen.WorkingArea.Top + Math.Max(0, (screen.WorkingArea.Height - physHeight) / 2);
-
-        if (physWidth <= screen.WorkingArea.Width)
-        {
-            if (physX + physWidth > screen.WorkingArea.Right)
-            {
-                physX = screen.WorkingArea.Right - physWidth;
-            }
-            if (physX < screen.WorkingArea.Left)
-            {
-                physX = screen.WorkingArea.Left;
-            }
-        }
-        else
-        {
-            physX = screen.WorkingArea.Left;
-        }
-
-        if (physHeight <= screen.WorkingArea.Height)
-        {
-            if (physY + physHeight > screen.WorkingArea.Bottom)
-            {
-                physY = screen.WorkingArea.Bottom - physHeight;
-            }
-            if (physY < screen.WorkingArea.Top)
-            {
-                physY = screen.WorkingArea.Top;
-            }
-        }
-        else
-        {
-            physY = screen.WorkingArea.Top;
-        }
+        var wa = screen.WorkingArea;
+        var near = CalculateNearCursorPosition(
+            new Rect(wa.Left, wa.Top, wa.Width, wa.Height),
+            new Point(cursor.X, cursor.Y),
+            physWidth,
+            physHeight,
+            gap: 12 * monitorDpiScale);
+        int physX = (int)Math.Round(near.X);
+        int physY = (int)Math.Round(near.Y);
 
         window.Left = physX / systemDpiScale;
         window.Top = physY / systemDpiScale;

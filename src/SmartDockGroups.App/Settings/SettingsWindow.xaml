@@ -39,9 +39,17 @@
                 <TextBlock Text="{loc:Loc settings.restoreGroupsHotkeyHint}" Style="{StaticResource AppHintText}" Margin="0,6,0,0" />
             </StackPanel>
         </GroupBox>
+        <GroupBox Header="{loc:Loc settings.importExport}" DockPanel.Dock="Top" Margin="0,0,0,8">
+            <StackPanel>
+                <WrapPanel Orientation="Horizontal">
+                    <Button Content="{loc:Loc settings.importShortcuts}" MinWidth="96" Padding="12,4" Margin="0,0,8,4" Click="OnImportShortcutsClick" />
+                    <Button Content="{loc:Loc settings.import}" MinWidth="96" Padding="12,4" Margin="0,0,8,4" Click="OnImportClick" />
+                    <Button Content="{loc:Loc settings.export}" MinWidth="96" Padding="12,4" Margin="0,0,8,4" Click="OnExportClick" />
+                </WrapPanel>
+                <TextBlock Text="{loc:Loc settings.importShortcutsHint}" Style="{StaticResource AppHintText}" TextWrapping="Wrap" Margin="0,6,0,0" />
+            </StackPanel>
+        </GroupBox>
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button Content="{loc:Loc settings.export}" Width="96" Margin="0,0,8,0" Click="OnExportClick" />
-            <Button Content="{loc:Loc settings.import}" Width="96" Margin="0,0,16,0" Click="OnImportClick" />
             <Button Content="{loc:Loc settings.save}" Width="96" Margin="0,0,8,0" Click="OnSaveClick" />
             <Button Content="{loc:Loc settings.close}" Width="96" Click="OnCloseClick" />
         </StackPanel>

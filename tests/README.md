@@ -9,7 +9,7 @@ publicação.
 dotnet test tests/SmartDockGroups.Tests
 ```
 
-47 testes, ~1 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
+73 testes, ~3 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
 
 - **`MonitorPlacementTests`** — a geometria que resgata um grupo quando o conjunto de
   monitores mudou. O `docs/OVERVIEW.md` registrava que essa matemática tinha sido conferida
@@ -25,6 +25,12 @@ dotnet test tests/SmartDockGroups.Tests
   e integridade de cache com destinos variados.
 - **`IconVisualCaptureTests`** — renderização do ladrilho de pasta de app (`AppFolderTile`)
   com validação visual do mosaico 3×3.
+- **`GroupRulesTests`** — as regras de 2026-09-30: nome único dentro do grupo (maiúsculas e
+  espaços ignorados, numeração " (2)", normalização de configs antigas mantendo o primeiro),
+  compartilhar um aspecto da aparência sem arrastar os outros, `GroupDefaults` aplicando só
+  o escolhido e sobrevivendo a salvar/recarregar, diálogo aberto sob o ponteiro e empurrado
+  para dentro da área útil, e a recuperação de atalho perdido — pelo nome, pelo prefixo,
+  aceitando duas cópias do mesmo atalho e **recusando** dois atalhos diferentes de mesmo nome.
 - **`PromptPositioningTests`** — cálculo de centralização de janelas por monitor com DPI heterogêneo,
   garantia de contenção na área de trabalho útil, conversão física para DIPs WPF, e validação interativa
   em ambiente multi-monitor real (`Screen.AllScreens`) com medição de retângulos e capturas.
@@ -69,9 +75,28 @@ A sonda também oferece rotinas automáticas de validação e captura do app rea
 
 ### Segurança da configuração do usuário
 
-A sonda faz backup do `%AppData%\SmartDockGroups\config.json`, **confere o backup por hash** e
-**aborta antes de abrir qualquer coisa** se o backup não bater. No fim restaura e confere de
-novo. Nenhuma execução deixa a configuração real alterada.
+**Padrão desde 2026-09-30: pasta isolada.** O app aceita `SMARTDOCKGROUPS_DATA_DIR`; a sonda
+cria `<out>\data-<label>`, sobe o app apontando para ela e só encerra o processo que ela mesma
+abriu. A configuração real, o registro e a instância aberta do usuário ficam intocados.
+
+`--legacy-real-config` (para builds anteriores, que ignoram a variável) volta ao modo antigo:
+backup do `%AppData%\SmartDockGroups\config.json`, **conferido por hash**, **abortando antes de
+abrir qualquer coisa** se o backup não bater; no fim restaura e confere de novo. Esse modo
+encerra todas as instâncias do app — inclusive a do usuário.
+
+### `--verify-lote`
+
+```
+tests/GroupProbe/bin/Release/net10.0-windows/GroupProbe.exe --verify-lote ^
+  --exe <SmartDockGroups.App.exe> --out <pasta> [--clean-cache] [--reuse-data]
+```
+
+Copia a configuração real (só leitura) e o cache de ícones para `<pasta>\data`, acrescenta dois
+grupos de teste ("Livre (teste)", em posição livre, e "Rolagem (teste)", baixo e cheio) e percorre
+os cenários do lote de 2026-09-30, gravando `report-lote.json` e capturas recortadas `lote-*.png`.
+`--clean-cache` = cenário "Instalação limpa"; `--reuse-data` reaproveita a pasta de uma rodada
+anterior (atalhos já adotados). Os rótulos procurados nos menus são os do idioma da configuração
+copiada (hoje inglês).
 
 ### Limite conhecido
 
