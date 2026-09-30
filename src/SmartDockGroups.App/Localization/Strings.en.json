@@ -170,5 +170,7 @@
   "settings.importShortcutsHint": "\"Import shortcuts\" opens a folder: select as many shortcuts as you like (Ctrl+A selects all) and choose the group that receives them. A JSON configuration replaces every group when you click Save.",
   "settings.importTargetPrompt": "Add {0} shortcut(s) to the group:",
   "settings.importNewGroup": "(New group...)",
-  "settings.importDone": "{0} shortcut(s) added to the group \"{1}\"."
+  "settings.importDone": "{0} shortcut(s) added to the group \"{1}\".",
+  "group.dockAll": "Dock all groups",
+  "group.undockAll": "Undock groups"
 }

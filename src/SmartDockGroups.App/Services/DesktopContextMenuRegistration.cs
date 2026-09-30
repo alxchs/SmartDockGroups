@@ -23,6 +23,10 @@ internal static class DesktopContextMenuRegistration
     public const string AllAppFolderAction = "all-appfolder";
     public const string AllPanelAction = "all-panel";
     public const string OpenSettingsAction = "open-settings";
+    public const string BringAllToFrontAction = "bring-all-to-front";
+    public const string SendAllToBackAction = "send-all-to-back";
+    public const string DockAllAction = "dock-all";
+    public const string UndockAllAction = "undock-all";
 
     /// <summary>Action prefix of a taskbar shortcut: <c>focus-group:&lt;group id&gt;</c>.</summary>
     public const string FocusGroupActionPrefix = "focus-group:";
@@ -55,15 +59,35 @@ internal static class DesktopContextMenuRegistration
         // whose items live under its own "shell" subkey, instead of a single command.
         root.SetValue("SubCommands", string.Empty);
 
+        // Rewritten from scratch every time, so verbs renumbered or dropped by a newer
+        // version never linger from an older one.
+        root.DeleteSubKeyTree("shell", throwOnMissingSubKey: false);
         using var shell = root.CreateSubKey("shell");
-        WriteVerb(shell, "01NewGroup", L("tray.newDesktopGroup"), executablePath, NewGroupAction);
-        WriteVerb(shell, "02OpenAllGroups", L("desktop.openAllGroups"), executablePath, OpenAllGroupsAction);
-        WriteVerb(shell, "03CloseAllGroups", L("desktop.closeAllGroups"), executablePath, CloseAllGroupsAction);
-        WriteVerb(shell, "04ToggleCollapseAll", L("desktop.toggleCollapseAll"), executablePath, ToggleCollapseAllAction);
-        WriteVerb(shell, "05AllAppFolder", L("desktop.allAppFolder"), executablePath, AllAppFolderAction);
-        WriteVerb(shell, "06AllPanel", L("desktop.allPanel"), executablePath, AllPanelAction);
-        WriteVerb(shell, "07OpenSettings", L("tray.settings"), executablePath, OpenSettingsAction);
+        foreach (var (key, labelKey, action) in Verbs)
+        {
+            WriteVerb(shell, key, L(labelKey), executablePath, action);
+        }
     }
+
+    /// <summary>
+    /// Every command of the desktop menu. Each one launches the exe: if the app is not running
+    /// it starts (and then carries the command out), so none of these depend on it already
+    /// being in memory.
+    /// </summary>
+    internal static readonly (string Key, string LabelKey, string Action)[] Verbs =
+    [
+        ("01NewGroup", "tray.newDesktopGroup", NewGroupAction),
+        ("02OpenAllGroups", "desktop.openAllGroups", OpenAllGroupsAction),
+        ("03CloseAllGroups", "desktop.closeAllGroups", CloseAllGroupsAction),
+        ("04BringAllToFront", "group.bringAllToFront", BringAllToFrontAction),
+        ("05SendAllToBack", "group.sendAllToBack", SendAllToBackAction),
+        ("06ToggleCollapseAll", "desktop.toggleCollapseAll", ToggleCollapseAllAction),
+        ("07DockAll", "group.dockAll", DockAllAction),
+        ("08UndockAll", "group.undockAll", UndockAllAction),
+        ("09AllAppFolder", "desktop.allAppFolder", AllAppFolderAction),
+        ("10AllPanel", "desktop.allPanel", AllPanelAction),
+        ("11OpenSettings", "tray.settings", OpenSettingsAction)
+    ];
 
     public static void Unregister()
     {

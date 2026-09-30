@@ -741,3 +741,19 @@ nele com a instrução "clique direito → Fixar na barra de tarefas"; mantenha 
 grupo for renomeado ou removido. Prove fixando pelo menu do Explorer de verdade, conferindo que o
 Windows copia o `.lnk` para `User Pinned\TaskBar`, que um segundo grupo continua fixável, e desafixe
 voltando a barra exatamente ao estado anterior.
+
+## 30. Comandos que sobem o app, menus nas bordas e acoplar os grupos (1.1.3.0)
+
+1. Trazer os grupos para frente, mandá-los para o fundo, abrir todos — qualquer menu que
+   fale dos grupos — tem de funcionar com o app fora da memória, trazendo-o. O menu da área
+   de trabalho ganha esses comandos (e acoplar/desacoplar); cada um relança o `.exe`, que
+   sobe e executa, ou repassa ao que já está aberto. O comando que sobe o app espera os
+   grupos estarem na tela. A bandeja ganha os mesmos comandos.
+2. Grupo encostado numa borda: o menu tem de abrir do lado coerente, nunca para fora nem no
+   outro monitor — esquerda/direita e topo/rodapé. *(Reproduzido antes de mexer: 19 casos,
+   todos certos no build atual; aguardando um caso concreto.)*
+3. Uma opção para **acoplar todos os grupos**, como se estivessem num dock: empilhados e
+   fechados. A seta para baixo de um abre só ele e empurra os de baixo; fechá-lo puxa de
+   volta, com efeito de expandir/colapsar. Nunca dois abertos. Antes de acoplar, guarde
+   posição e tamanho de cada grupo (e estado e estilo); **desacoplar** devolve cada um ao
+   local de antes. O estado sobrevive a reabrir o app; arrastar um título move a pilha.

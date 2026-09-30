@@ -348,6 +348,28 @@ funciona de fora desta rede, sem custo.
   `...\Quick Launch\User Pinned\TaskBar` não fixa nada (nem reiniciando o Explorer), porque os
   botões vêm do valor binário `Favorites` da chave `Taskband`. Ver
   [`VIABILIDADE_ATALHO_TASKBAR_GRUPO.md`](VIABILIDADE_ATALHO_TASKBAR_GRUPO.md).
+- **Acoplar todos os grupos** (`DesktopOrganizerService.Dock`/`Undock`,
+  `LauncherConfiguration.Dock`, cálculo em `DockLayout` no Core). Empilha todos os
+  grupos abertos numa coluna, fechados, a partir de onde está o grupo clicado e com
+  a largura dele (ou do grupo mais acima/à esquerda, quando vem da bandeja ou da área
+  de trabalho). Antes guarda, por grupo, posição, tamanho, fechado/aberto, estilo
+  (painel ou pasta de apps) e a posição do painel (`GroupPlacement`); pasta de apps
+  vira barra de título enquanto está acoplada. A seta de expandir de um grupo
+  acoplado abre **só** ele (o que estava aberto fecha) e os de baixo deslizam para
+  baixo (animação do `Top`); fechar puxa de volta; "colapsar todos" fecha o aberto.
+  O grupo aberto recebe a altura que tinha antes de acoplar, cortada ao que cabe até o
+  rodapé da área útil; se nem as barras cabem, a pilha inteira sobe (nunca acima do
+  topo da área útil — a barra de tarefas pode estar em cima). Arrastar o título de
+  qualquer um move a pilha; os comandos "todos para este monitor" / "para o monitor
+  N" / "reunir" movem a pilha; as bordas de redimensionar e a troca de estilo ficam
+  desligadas. Grupos abertos ou criados durante o acoplamento entram no fim (com a
+  aparência deles guardada antes); fechar um tira-o da pilha sem deixar buraco. O
+  estado fica no `config.json`: o app reaberto volta acoplado. **Desacoplar** devolve
+  cada grupo ao que foi guardado. Provado no app real (`GroupProbe --verify-lote
+  --dock`): 5 grupos empilhados e encostados na mesma coluna; expandir o 2º empurrou
+  os de baixo; expandir o 3º fechou o 2º; arrastar moveu todos (+300, +150 px);
+  reabrir manteve; desacoplar devolveu cada janela ao mesmo retângulo e cada grupo à
+  mesma configuração (inclusive "Teams Chat" de volta a pasta de apps).
 - **`AppFolderTile`** — o ladrilho fechado: mosaico 3×3 dos primeiros ícones,
   selo de contagem, nome do grupo. Puramente desenho, sem estado. Ao ser
   colocado como o ícone do grupo na área de trabalho (`DesktopGroupWindow`,
@@ -425,12 +447,22 @@ funciona de fora desta rede, sem custo.
 
 - **`DesktopContextMenuRegistration`** — registra um submenu de verdade sob
   `HKCU\...\DesktopBackground\Shell` (o truque clássico de verbos por
-  registro — sem extensão COM, sem hook) com cinco comandos (novo grupo,
-  colapsar/expandir todos, todos em App Folder, todos em painel,
-  Configurações). Cada verbo só relança o próprio `.exe` com um argumento
-  `--desktop-action=...`; quem decide se isso inicia o app do zero ou
-  entrega o comando ao processo já aberto é o `SingleInstanceCoordinator`.
-  Roda em todo startup (idempotente). Os rótulos seguem o **idioma do
+  registro — sem extensão COM, sem hook) com onze comandos
+  (`DesktopContextMenuRegistration.Verbs`): novo grupo, abrir todos, fechar todos,
+  **trazer todos para frente**, **mandar todos para o fundo**, colapsar/expandir
+  todos, **acoplar todos**, **desacoplar**, todos em App Folder, todos em painel,
+  Configurações. Cada verbo só relança o próprio `.exe` com um argumento
+  `--desktop-action=...`, então **nenhum depende do app já estar na memória**: se
+  ele não está rodando, sobe e executa o comando; se está, o
+  `SingleInstanceCoordinator` entrega o comando ao processo aberto. Um comando que
+  sobe o app é executado só depois que os grupos foram mostrados e dispostos
+  (`Dispatcher` em `ApplicationIdle`) — antes, "trazer para frente" ou "focar grupo"
+  agiam sobre janelas ainda não desenhadas. Provado em 2026-09-30 com o app fechado
+  para acoplar, trazer para frente, mandar para o fundo, abrir todos e colapsar todos,
+  e com o app aberto para desacoplar (a segunda instância repassou e saiu). Roda em
+  todo startup e reescreve a lista inteira (verbos renumerados de uma versão antiga
+  não ficam para trás). Os mesmos comandos de "todos os grupos" estão no menu da
+  bandeja. Os rótulos seguem o **idioma do
   Windows** (`LocalizationService.GetForLanguage` + `DetectLanguage`, nunca
   `Get`/`CurrentLanguage`) — de propósito, diferente de todo o resto do
   app: este menu é lido pelo Explorer, possivelmente com o app fechado, e
@@ -665,6 +697,16 @@ Para lançar uma versão nova: editar o `VERSION`, recompilar, commitar.
   soltura como posição (antes o item levava as coordenadas do grupo de origem).
   Validado por leitura de código e compilação, não por arrasto sintético — a mesma
   limitação já registrada para o arrasto entre grupos.
+- **Menu abrindo para fora da tela ou no outro monitor perto das bordas**: relatado
+  pelo Alexandre em 2026-09-30, **não reproduzido**. `GroupProbe --verify-lote
+  --menu-edges` pôs um grupo em cada canto da área útil dos dois monitores (150% e
+  100%) e mediu o menu do grupo, um submenu, um sub-submenu, o menu de um ícone com o
+  submenu "Grupo ▸" e o menu do botão "…", além do ladrilho de pasta de apps no canto
+  inferior direito: os 19 casos abriram inteiros dentro do monitor clicado e para o
+  lado certo (à esquerda na borda direita, para cima no rodapé). À espera de um caso
+  concreto (captura) para reproduzir. Observado no mesmo teste: ao pôr uma janela
+  atravessando a divisa entre os monitores de escalas diferentes, o Windows a
+  reposicionou sozinho (o app é "System DPI aware").
 - **"Parametrizacao de acesso ao IGC"** não foi recuperado: não existe `.lnk` com
   esse nome em nenhum lugar procurado. Ele aparece com o triângulo de aviso até o
   Alexandre apontá-lo com "Localizar atalho perdido…".
@@ -677,7 +719,8 @@ O projeto conta com uma suíte automatizada de testes xUnit em `tests/SmartDockG
 de serialização de `config.json`, extração e corte de transparência de ícones no
 `IconCacheService`, schema versionado `v3`, resolução unívoca de atalhos `.url` de área de trabalho e rejeição sob ambiguidade, renderização do ladrilho `AppFolderTile`,
 e as regras do lote de 2026-09-30 em `GroupRulesTests`: nomes únicos, compartilhamento por aspecto, `GroupDefaults`
-e recuperação de atalho perdido sem palpite).
+e recuperação de atalho perdido sem palpite; `DockTests`: pilha acoplada, restauração, persistência e verbos do menu
+da área de trabalho) — 82 no total.
 
 Além dos testes unitários, há a sonda de caracterização em C# (`tests/GroupProbe`) que sobe
 a aplicação de verdade com um fixture de teste, valida backup por hash, mede a geometria
@@ -686,7 +729,7 @@ permitindo comparar com a linha de base via `compare_reports.py`. A aplicação 
 `WinSta0\Default`. **Desde 2026-09-30 a sonda roda o app numa pasta de dados isolada**
 (`SMARTDOCKGROUPS_DATA_DIR`), ao lado da instância do usuário, sem trocar o `config.json` real;
 `--legacy-real-config` mantém a troca com backup por hash para builds anteriores, que não conhecem a
-variável. O relatório tem hoje 372 campos (menus reorganizados). A baseline `tests/baseline/report-master.json`
+variável. O relatório tem hoje 382 campos (menus reorganizados; item "Acoplar" e estado `Dock` desde a 1.1.3.0). A baseline `tests/baseline/report-master.json`
 foi regenerada neste lote: o oráculo deu `IDENTICO` em duas rodadas do mesmo build, e a comparação
 master (17dcd55) × branch divergiu só nos menus reorganizados, no `title` das janelas e na captura do
 grupo "Alpha Panel" — onde "Mike Paint" (`mspaint.exe`, ausente nesta máquina) passou de espaço vazio
@@ -696,7 +739,9 @@ Há também o modo `--verify-lote` (`tests/GroupProbe/LoteVerifier.cs`), que rod
 da configuração real (mesmos tipos de item) e percorre: reparo dos atalhos na inicialização, colar em grupo
 livre (e colar de novo sem duplicar), rolagem, Ctrl+F, menus do grupo e do ícone, nome repetido, remover
 grupo com atalhos, menus da folha do App Folder, novo grupo perto do mouse, compartilhar só a opacidade e
-importar atalhos pelas Configurações. `--clean-cache` troca o cenário "Upgrade" (cache de ícones copiado)
+importar atalhos pelas Configurações. `--dock` roda só o acoplamento (acoplar, expandir, arrastar, reabrir,
+desacoplar e os comandos com o app fechado); `--menu-edges` só a posição dos menus nas bordas.
+`--clean-cache` troca o cenário "Upgrade" (cache de ícones copiado)
 por "Instalação limpa". Passou inteiro no executável **publicado** self-contained 1.1.2.0 nos dois cenários.
 
 > **Nota sobre PowerShell para diagnóstico Win32:** `FindWindow("Progman",

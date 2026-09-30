@@ -51,6 +51,8 @@ internal static class Program
                          ?? Path.Combine(Path.GetTempPath(), "SmartDockGroups-lote");
             Directory.CreateDirectory(outDir);
             LoteVerifier.CleanCache = args.Contains("--clean-cache");
+            LoteVerifier.OnlyMenuEdges = args.Contains("--menu-edges");
+            LoteVerifier.OnlyDock = args.Contains("--dock");
             return LoteVerifier.Run(Path.GetFullPath(exe), Path.GetFullPath(outDir), args.Contains("--reuse-data"));
         }
 

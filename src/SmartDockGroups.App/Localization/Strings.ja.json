@@ -153,5 +153,14 @@
   "settings.importShortcutsHint": "\"ショートカットをインポート\" はフォルダーを開きます。必要なだけ選択し (Ctrl+A ですべて選択)、追加先のグループを選びます。JSON 構成は [保存] をクリックするとすべてのグループを置き換えます。",
   "settings.importTargetPrompt": "{0} 個のショートカットを追加するグループ:",
   "settings.importNewGroup": "(新しいグループ...)",
-  "settings.importDone": "{0} 個のショートカットをグループ \"{1}\" に追加しました。"
+  "settings.importDone": "{0} 個のショートカットをグループ \"{1}\" に追加しました。",
+  "group.dockAll": "すべてのグループをドッキング",
+  "group.undockAll": "グループのドッキングを解除",
+  "group.bringAllToFront": "すべてのグループを前面に表示",
+  "group.sendAllToBack": "すべてのグループを背面に移動",
+  "group.sendOthersToBack": "他のグループを背面に移動",
+  "desktop.openAllGroups": "デスクトップのすべてのグループを開く",
+  "desktop.closeAllGroups": "デスクトップのすべてのグループを閉じる",
+  "desktop.groupsMenu": "デスクトップ グループ",
+  "group.windowOrder": "デスクトップ上の順序"
 }

@@ -240,6 +240,98 @@ internal sealed class DesktopGroupWindow : Window
 
     public bool IsCollapsed => _category.IsCollapsed;
 
+    internal MenuCategory Category => _category;
+
+    /// <summary>
+    /// True while this group is part of the docked stack (<see cref="DesktopOrganizerService"/>
+    /// owns its position, size and collapsed state then): the chevron asks the stack to expand
+    /// it, dragging the title moves the whole stack, and the resize edges are off.
+    /// </summary>
+    private bool _isDockedMember;
+
+    internal bool IsDockedMember => _isDockedMember;
+
+    /// <summary>Height of the group shown as just its title bar, border included.</summary>
+    internal double HeaderHeight => _header.ActualHeight > 0
+        ? _header.ActualHeight + 2
+        : _theme.TitleFontSize + 24;
+
+    /// <summary>
+    /// Puts the group in its slot of the docked stack. The slot becomes the group's own saved
+    /// position and size, so everything that already reads them (restoring after a monitor
+    /// change, persisting) keeps working; what the group looked like before docking lives in
+    /// <see cref="DockState.Saved"/>. Groups below an expanding one slide instead of jumping.
+    /// </summary>
+    internal void ApplyDockGeometry(double left, double top, double width, double height, bool expanded, bool animate)
+    {
+        _isDockedMember = true;
+        if (IsAppFolder)
+        {
+            _overlay?.Close();
+            _category.DisplayMode = DesktopGroupDisplayMode.Panel;
+            _folderHost.Visibility = Visibility.Collapsed;
+            _border.Visibility = Visibility.Visible;
+        }
+
+        var widthChanged = Math.Abs(_category.DesktopWidth - width) > 0.5;
+        _category.IsCollapsed = !expanded;
+        _scroller.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        UpdateCollapseGlyph();
+        SetResizeHandlesVisible(false);
+
+        SizeToContent = SizeToContent.Manual;
+        Width = width;
+        Height = height;
+        _category.DesktopWidth = width;
+        if (expanded)
+        {
+            _category.DesktopHeight = height;
+        }
+
+        _category.DesktopX = left;
+        _category.DesktopY = top;
+        _placedAt = new System.Windows.Point(left, top);
+        Left = left;
+        if (animate && Math.Abs(Top - top) > 0.5)
+        {
+            var slide = new DoubleAnimation(Top, top, TimeSpan.FromMilliseconds(Math.Max(_theme.AnimationDurationMs, 1) * 1.4))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+            slide.Completed += (_, _) =>
+            {
+                BeginAnimation(TopProperty, null);
+                Top = top;
+            };
+            BeginAnimation(TopProperty, slide);
+        }
+        else
+        {
+            BeginAnimation(TopProperty, null);
+            Top = top;
+        }
+
+        if (widthChanged && _category.IconArrangement != IconArrangement.None)
+        {
+            ArrangeInGrid(NameOrder());
+        }
+        else
+        {
+            UpdateCanvasExtent();
+        }
+    }
+
+    /// <summary>Leaves the stack: the group shows itself as its (just restored) category says.</summary>
+    internal void LeaveDock()
+    {
+        _isDockedMember = false;
+        BeginAnimation(TopProperty, null);
+        _header.ContextMenu = BuildHeaderContextMenu();
+        PlaceWithoutSaving(_category.DesktopX, _category.DesktopY);
+        SetCollapsed(_category.IsCollapsed);
+        FinishStructuralChange();
+    }
+
     /// <summary>
     /// Brings this group back after Windows hid it, and does the same for any open
     /// subfolders. Measured directly rather than assumed: Show Desktop does not minimize
@@ -400,6 +492,12 @@ internal sealed class DesktopGroupWindow : Window
             _monitorPositions[to] = position;
         }
 
+        if (_isDockedMember && _commands is not null)
+        {
+            _commands.DockMovedTo(_category, position.X, position.Y);
+            return;
+        }
+
         PlaceWithoutSaving(position.X, position.Y);
 
         _category.DesktopX = position.X;
@@ -409,6 +507,11 @@ internal sealed class DesktopGroupWindow : Window
 
     public void SetCollapsedExternally(bool collapsed)
     {
+        if (_isDockedMember)
+        {
+            return;
+        }
+
         SetCollapsed(collapsed);
         _onLayoutChanged(_category);
     }
@@ -1520,11 +1623,14 @@ internal sealed class DesktopGroupWindow : Window
         menu.Items.Add(BuildSeparator());
 
         var viewMenu = CreateMenuItem(LocalizationService.Get("group.viewMenu"), "IconGrid");
-        AddMenuItem(
-            viewMenu,
+        var styleItem = CreateMenuItem(
             LocalizationService.Get(IsAppFolder ? "group.stylePanel" : "group.styleAppFolder"),
-            ToggleDisplayMode,
             IsAppFolder ? "IconStylePanel" : "IconStyleAppFolder");
+        styleItem.Click += (_, _) => ToggleDisplayMode();
+
+        // A docked group is always a title bar in the stack; its own style comes back on undock.
+        styleItem.IsEnabled = !_isDockedMember;
+        viewMenu.Items.Add(styleItem);
         AddCheckItem(viewMenu, LocalizationService.Get("group.arrangeIcons"), _category.IconArrangement != IconArrangement.None, ToggleArrangeIconsAutomatically, "IconSort");
 
         var sizeMenu = CreateMenuItem(LocalizationService.Get("group.iconSize"), "IconIconSize");
@@ -1580,6 +1686,11 @@ internal sealed class DesktopGroupWindow : Window
         {
             menu.Items.Add(BuildSeparator());
             AddMenuItem(menu, LocalizationService.Get("group.newGroup"), _commands.CreateGroup, "IconAdd");
+            AddMenuItem(
+                menu,
+                LocalizationService.Get(_commands.IsDocked ? "group.undockAll" : "group.dockAll"),
+                () => _commands.ToggleDock(_category),
+                "IconStylePanel");
             AddMenuItem(menu, LocalizationService.Get("group.duplicate"), () => _commands.Duplicate(_category), "IconDuplicate");
             AddMenuItem(menu, LocalizationService.Get("group.taskbarShortcut"), () => _commands.CreateTaskbarShortcut(_category), "IconStylePanel");
             AddMenuItem(menu, LocalizationService.Get("tray.settings"), _commands.OpenSettings, "IconSettings");
@@ -2124,6 +2235,13 @@ internal sealed class DesktopGroupWindow : Window
 
     private void ToggleCollapse()
     {
+        if (_isDockedMember && _commands is not null)
+        {
+            // In the stack only one group is open: the stack decides who closes.
+            _commands.DockToggleExpanded(_category);
+            return;
+        }
+
         SetCollapsed(!_category.IsCollapsed);
         _header.ContextMenu = BuildHeaderContextMenu();
         _onLayoutChanged(_category);
@@ -2492,7 +2610,7 @@ internal sealed class DesktopGroupWindow : Window
         }
     }
 
-    private static void BringAllGroupsToFront()
+    internal static void BringAllGroupsToFront()
     {
         foreach (var window in _allGroupWindows.ToList())
         {
@@ -2522,7 +2640,7 @@ internal sealed class DesktopGroupWindow : Window
         }
     }
 
-    private static void SendAllToBack()
+    internal static void SendAllToBack()
     {
         foreach (var window in _allGroupWindows.ToList())
         {
@@ -2557,6 +2675,12 @@ internal sealed class DesktopGroupWindow : Window
         var areas = DisplayInventory.WorkAreas(this);
         if (areas.Count == 0)
         {
+            return;
+        }
+
+        if (_isDockedMember && _commands is not null)
+        {
+            _commands.MoveDockInto(areas[Math.Clamp(MonitorPlacement.IndexOfOwner(HomeRect, areas), 0, areas.Count - 1)]);
             return;
         }
 
@@ -2596,6 +2720,12 @@ internal sealed class DesktopGroupWindow : Window
         var areas = DisplayInventory.WorkAreas(this);
         if (targetMonitorIndex < 0 || targetMonitorIndex >= areas.Count)
         {
+            return;
+        }
+
+        if (_isDockedMember && _commands is not null)
+        {
+            _commands.MoveDockInto(areas[targetMonitorIndex]);
             return;
         }
 
@@ -3685,6 +3815,12 @@ internal sealed class DesktopGroupWindow : Window
             _header.Cursor = Cursors.Arrow;
         }
 
+        if (_isDockedMember && _commands is not null)
+        {
+            _commands.DockMovedTo(_category, Left, Top);
+            return;
+        }
+
         _category.DesktopX = Left;
         _category.DesktopY = Top;
         _monitorPositions.Clear();
@@ -3693,7 +3829,7 @@ internal sealed class DesktopGroupWindow : Window
 
     private void SetResizeHandlesVisible(bool visible)
     {
-        var visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        var visibility = visible && !_isDockedMember ? Visibility.Visible : Visibility.Collapsed;
         foreach (var handle in _resizeHandles)
         {
             handle.Visibility = visibility;

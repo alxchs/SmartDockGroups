@@ -1,6 +1,6 @@
 {
   "label": "master",
-  "exeFileVersion": "1.1.1.2",
+  "exeFileVersion": "1.1.2.0",
   "fixture": "probe-config.json",
   "groupWindowCount": 2,
   "windows": [
@@ -237,6 +237,11 @@
         },
         {
           "depth": 0,
+          "name": "Dock all groups",
+          "enabled": true
+        },
+        {
+          "depth": 0,
           "name": "Duplicate group",
           "enabled": true
         },
@@ -457,6 +462,11 @@
         },
         {
           "depth": 0,
+          "name": "Dock all groups",
+          "enabled": true
+        },
+        {
+          "depth": 0,
           "name": "Duplicate group",
           "enabled": true
         },
@@ -616,6 +626,14 @@
       "AppTheme": "Dark",
       "Language": "en"
     },
-    "GroupDefaults": {}
+    "GroupDefaults": {},
+    "Dock": {
+      "IsDocked": false,
+      "Left": 0,
+      "Top": 0,
+      "Width": 0,
+      "Order": [],
+      "Saved": []
+    }
   }
 }

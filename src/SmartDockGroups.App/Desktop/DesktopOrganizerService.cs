@@ -12,6 +12,8 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
     private static readonly TimeSpan PlacementHold = TimeSpan.FromSeconds(3);
 
     private readonly Dictionary<MenuCategory, DesktopGroupWindow> _windows = new();
+    private LauncherConfiguration? _configuration;
+    private Action<MenuCategory>? _save;
     private IReadOnlyList<Rect>? _lastWorkAreas;
     private DispatcherTimer? _displaySettleTimer;
 
@@ -62,6 +64,13 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
     /// </summary>
     public void EnsureGroupsReachable()
     {
+        if (IsDocked)
+        {
+            // The stack keeps itself together; it only needs to land on a monitor that exists.
+            RelayoutDock(animate: false);
+            return;
+        }
+
         var reference = _windows.Values.FirstOrDefault();
         if (reference is null)
         {
@@ -130,6 +139,8 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
         Action<MenuCategory> onDeleteRequested,
         IDesktopGroupCommands? commands = null)
     {
+        _configuration = configuration;
+        _save = onLayoutChanged;
         var groups = FindDesktopGroups(configuration).Where(g => !g.IsClosed).ToList();
 
         foreach (var stale in _windows.Keys.Except(groups).ToList())
@@ -147,11 +158,230 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
 
             var theme = category.ThemeOverride ?? configuration.Theme;
             var window = new DesktopGroupWindow(category, theme, iconCache, LaunchExecutor.Execute, onLayoutChanged, onDeleteRequested, commands);
+            window.Closed += (_, _) => OnWindowClosed(category, window);
             window.Show();
             _windows[category] = window;
         }
 
         EnsureGroupsReachable();
+        RelayoutDockWhenReady();
+    }
+
+    /// <summary>A group closed by its own "×" leaves the stack at once, instead of leaving a gap.</summary>
+    private void OnWindowClosed(MenuCategory category, DesktopGroupWindow window)
+    {
+        if (_windows.TryGetValue(category, out var current) && ReferenceEquals(current, window))
+        {
+            _windows.Remove(category);
+            if (IsDocked)
+            {
+                RelayoutDockWhenReady();
+            }
+        }
+    }
+
+    // ───────────────────────────── docking
+
+    public bool IsDocked => _configuration?.Dock.IsDocked == true;
+
+    /// <summary>
+    /// Stacks every open group in one column starting where <paramref name="anchor"/> is, all
+    /// collapsed, after remembering exactly how each one was shown.
+    /// </summary>
+    public void Dock(MenuCategory anchor)
+    {
+        if (_configuration is null || IsDocked)
+        {
+            return;
+        }
+
+        EnsureIds(_configuration);
+        var members = _windows.Keys
+            .OrderBy(group => group.DesktopY)
+            .ThenBy(group => group.DesktopX)
+            .ToList();
+
+        var anchorWidth = anchor.DisplayMode == DesktopGroupDisplayMode.AppFolder
+            ? anchor.DesktopWidth
+            : _windows.TryGetValue(anchor, out var anchorWindow) && anchorWindow.ActualWidth > 0 ? anchorWindow.ActualWidth : anchor.DesktopWidth;
+
+        _configuration.Dock = new DockState
+        {
+            IsDocked = true,
+            Left = anchor.DesktopX,
+            Top = anchor.DesktopY,
+            Width = Math.Max(160, anchorWidth),
+            Order = [.. members.Select(group => group.Id!)],
+            Saved = [.. members.Select(GroupPlacement.From)]
+        };
+
+        RelayoutDock(animate: false);
+    }
+
+    /// <summary>Puts every docked group back exactly as it was when the stack was made.</summary>
+    public void Undock()
+    {
+        if (_configuration is null || !IsDocked)
+        {
+            return;
+        }
+
+        var dock = _configuration.Dock;
+        _configuration.Dock = new DockState();
+        foreach (var placement in dock.Saved)
+        {
+            var group = FindGroupById(_configuration, placement.Id);
+            if (group is null)
+            {
+                continue;
+            }
+
+            placement.ApplyTo(group);
+            if (_windows.TryGetValue(group, out var window))
+            {
+                window.LeaveDock();
+            }
+        }
+
+        if ((_windows.Keys.FirstOrDefault() ?? AllDesktopGroups(_configuration).FirstOrDefault()) is { } any)
+        {
+            _save?.Invoke(any);
+        }
+
+        EnsureGroupsReachable();
+    }
+
+    /// <summary>Opens <paramref name="member"/> and closes the one that was open — or closes it when it was already open.</summary>
+    public void ToggleDockExpanded(MenuCategory member)
+    {
+        if (_configuration is null || !IsDocked)
+        {
+            return;
+        }
+
+        var dock = _configuration.Dock;
+        dock.ExpandedId = dock.ExpandedId == member.Id ? null : member.Id;
+        RelayoutDock(animate: true);
+    }
+
+    /// <summary>A docked group was dragged to (<paramref name="left"/>, <paramref name="top"/>): the stack follows it.</summary>
+    public void DockMovedTo(MenuCategory member, double left, double top)
+    {
+        if (_configuration is null || !IsDocked)
+        {
+            return;
+        }
+
+        var dock = _configuration.Dock;
+        var offset = 0.0;
+        foreach (var id in dock.Order)
+        {
+            if (id == member.Id)
+            {
+                break;
+            }
+
+            if (_windows.Keys.FirstOrDefault(g => g.Id == id) is { } above && _windows.TryGetValue(above, out var window))
+            {
+                offset += window.ActualHeight;
+            }
+        }
+
+        dock.Left = left;
+        dock.Top = top - offset;
+        RelayoutDock(animate: false);
+    }
+
+    /// <summary>Carries the stack into another work area, keeping it near the top and centred across.</summary>
+    public void MoveDockInto(Rect workArea)
+    {
+        if (_configuration is null || !IsDocked)
+        {
+            return;
+        }
+
+        var dock = _configuration.Dock;
+        dock.Left = workArea.Left + Math.Max(0, (workArea.Width - dock.Width) / 2);
+        dock.Top = workArea.Top + 24;
+        RelayoutDock(animate: false);
+    }
+
+    /// <summary>After a rebuild the title bars have no height until WPF has laid them out; wait for that.</summary>
+    public void RelayoutDockWhenReady()
+    {
+        if (!IsDocked)
+        {
+            return;
+        }
+
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+            () => RelayoutDock(animate: false),
+            DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// Places every open group in its slot. Groups opened or created while docked join at the
+    /// bottom (their current look saved first, so undocking returns them too); closed ones are
+    /// skipped but keep their place in the order and their saved look.
+    /// </summary>
+    public void RelayoutDock(bool animate)
+    {
+        if (_configuration is null || !IsDocked || _windows.Count == 0)
+        {
+            return;
+        }
+
+        var dock = _configuration.Dock;
+        foreach (var joining in _windows.Keys.Where(g => g.Id is not null && !dock.Order.Contains(g.Id)).OrderBy(g => g.DesktopY).ToList())
+        {
+            dock.Order.Add(joining.Id!);
+            dock.Saved.Add(GroupPlacement.From(joining));
+        }
+
+        // Forget groups that no longer exist at all (deleted), not ones that are only closed.
+        dock.Order.RemoveAll(id => FindGroupById(_configuration, id) is null);
+        dock.Saved.RemoveAll(placement => FindGroupById(_configuration, placement.Id) is null);
+
+        var open = dock.Order
+            .Select(id => _windows.FirstOrDefault(pair => pair.Key.Id == id))
+            .Where(pair => pair.Key is not null)
+            .ToList();
+        if (open.Count == 0)
+        {
+            return;
+        }
+
+        if (dock.ExpandedId is { } expandedId && open.All(pair => pair.Key.Id != expandedId))
+        {
+            dock.ExpandedId = null;
+        }
+
+        var areas = DisplayInventory.WorkAreas(open[0].Value);
+        var area = areas.Count == 0
+            ? SystemParameters.WorkArea
+            : areas[Math.Clamp(MonitorPlacement.IndexOfOwner(new Rect(dock.Left, dock.Top, dock.Width, 1), areas), 0, areas.Count - 1)];
+
+        // Keep the column on its monitor across.
+        dock.Left = Math.Clamp(dock.Left, area.Left, Math.Max(area.Left, area.Right - dock.Width));
+
+        var members = open
+            .Select(pair => new DockMember(
+                pair.Key.Id!,
+                pair.Value.HeaderHeight,
+                dock.Saved.FirstOrDefault(saved => saved.Id == pair.Key.Id)?.Height ?? pair.Key.DesktopHeight))
+            .ToList();
+
+        var (top, slots) = DockLayout.Arrange(members, dock.ExpandedId, dock.Top, area.Top, area.Bottom);
+        dock.Top = top;
+
+        foreach (var slot in slots)
+        {
+            var window = open.First(pair => pair.Key.Id == slot.Id).Value;
+            window.HoldPlacement(TimeSpan.FromSeconds(1));
+            window.ApplyDockGeometry(dock.Left, slot.Top, dock.Width, slot.Height, slot.Expanded, animate);
+        }
+
+        _save?.Invoke(open[0].Key);
     }
 
     public void OpenAllGroups(LauncherConfiguration configuration)
@@ -192,6 +422,14 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
 
     public void ToggleCollapseAll()
     {
+        if (IsDocked)
+        {
+            // Docked, "all expanded" does not exist: this closes the one that is open.
+            _configuration!.Dock.ExpandedId = null;
+            RelayoutDock(animate: true);
+            return;
+        }
+
         if (_windows.Count == 0)
         {
             return;
@@ -206,6 +444,12 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
 
     public void GatherAll()
     {
+        if (IsDocked)
+        {
+            MoveDockInto(SystemParameters.WorkArea);
+            return;
+        }
+
         if (_windows.Count == 0)
         {
             return;

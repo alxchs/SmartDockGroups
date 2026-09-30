@@ -170,5 +170,7 @@
   "settings.importShortcutsHint": "\"Importar atalhos\" abre uma pasta: selecione quantos atalhos quiser (Ctrl+A seleciona todos) e escolha o grupo que vai recebê-los. A configuração em JSON substitui todos os grupos ao clicar em Salvar.",
   "settings.importTargetPrompt": "Adicionar {0} atalho(s) ao grupo:",
   "settings.importNewGroup": "(Novo grupo...)",
-  "settings.importDone": "{0} atalho(s) adicionado(s) ao grupo \"{1}\"."
+  "settings.importDone": "{0} atalho(s) adicionado(s) ao grupo \"{1}\".",
+  "group.dockAll": "Acoplar todos os grupos",
+  "group.undockAll": "Desacoplar grupos"
 }
