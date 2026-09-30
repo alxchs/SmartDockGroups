@@ -43,6 +43,17 @@ internal static class Program
             return DefectBVerifier.Run(Path.GetFullPath(exe), Path.GetFullPath(outDir));
         }
 
+        if (args.Contains("--verify-lote"))
+        {
+            var exe = args.SkipWhile(a => a != "--exe").Skip(1).FirstOrDefault()
+                      ?? @"C:\desenv\utils\SmartDockGroups\src\SmartDockGroups.App\bin\Debug\net10.0-windows\SmartDockGroups.App.exe";
+            var outDir = args.SkipWhile(a => a != "--out").Skip(1).FirstOrDefault()
+                         ?? Path.Combine(Path.GetTempPath(), "SmartDockGroups-lote");
+            Directory.CreateDirectory(outDir);
+            LoteVerifier.CleanCache = args.Contains("--clean-cache");
+            return LoteVerifier.Run(Path.GetFullPath(exe), Path.GetFullPath(outDir), args.Contains("--reuse-data"));
+        }
+
         if (args.Contains("--capture-teams"))
         {
             var exe = args.SkipWhile(a => a != "--exe").Skip(1).FirstOrDefault()
@@ -60,13 +71,36 @@ internal static class Program
             return 2;
         }
 
+        Directory.CreateDirectory(options.OutputDirectory);
+
+        // Builds from 2026-09-30 on read SMARTDOCKGROUPS_DATA_DIR: the probe then runs them on a
+        // scratch folder, beside the user's own instance, and never touches the real config.
+        // Older builds ignore the variable, so they still need the swap-and-restore below.
+        if (!args.Contains("--legacy-real-config"))
+        {
+            var isolated = Path.Combine(options.OutputDirectory, "data-" + options.Label);
+            if (Directory.Exists(isolated))
+            {
+                Directory.Delete(isolated, recursive: true);
+            }
+
+            Directory.CreateDirectory(isolated);
+            _isolatedDataDirectory = isolated;
+            try
+            {
+                return Run(options, Path.Combine(isolated, "config.json"));
+            }
+            finally
+            {
+                StopApp();
+            }
+        }
+
         var configPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "SmartDockGroups",
             "config.json");
         var backupPath = Path.Combine(options.OutputDirectory, "user-config.backup.json");
-
-        Directory.CreateDirectory(options.OutputDirectory);
 
         // Guard first, act second: if the user's configuration cannot be preserved, nothing runs.
         var hadUserConfig = File.Exists(configPath);
@@ -124,11 +158,20 @@ internal static class Program
             .ToList();
 
         Console.WriteLine($"launching {options.ExePath}");
-        var app = Process.Start(new ProcessStartInfo(options.ExePath) { UseShellExecute = true })
-            ?? throw new InvalidOperationException("the app did not start.");
+        var start = new ProcessStartInfo(options.ExePath) { UseShellExecute = _isolatedDataDirectory is null };
+        if (_isolatedDataDirectory is not null)
+        {
+            start.Environment["SMARTDOCKGROUPS_DATA_DIR"] = _isolatedDataDirectory;
+        }
 
-        var live = Process.GetProcessesByName("SmartDockGroups.App").FirstOrDefault()
-            ?? throw new InvalidOperationException("no SmartDockGroups.App process is running.");
+        var app = Process.Start(start)
+            ?? throw new InvalidOperationException("the app did not start.");
+        _launched = app;
+
+        var live = _isolatedDataDirectory is not null
+            ? app
+            : Process.GetProcessesByName("SmartDockGroups.App").FirstOrDefault()
+              ?? throw new InvalidOperationException("no SmartDockGroups.App process is running.");
 
         // Wait for the windows instead of guessing a delay: a cold start of a freshly copied build
         // needs far longer than a warm one, and a fixed sleep silently measured an empty desktop.
@@ -514,9 +557,19 @@ internal static class Program
         return separator < 0 ? className : $"{className[..separator]};;<guid>]";
     }
 
+    private static string? _isolatedDataDirectory;
+    private static Process? _launched;
+
+    /// <summary>
+    /// In isolated mode only the instance this probe launched is stopped — the user's own
+    /// instance keeps running. In legacy mode every instance goes, as the swap requires.
+    /// </summary>
     private static void StopApp()
     {
-        foreach (var process in Process.GetProcessesByName("SmartDockGroups.App"))
+        var targets = _isolatedDataDirectory is not null
+            ? (_launched is null ? [] : new[] { _launched })
+            : Process.GetProcessesByName("SmartDockGroups.App");
+        foreach (var process in targets)
         {
             try
             {
@@ -556,7 +609,7 @@ internal static class Program
     {
         public static ProbeOptions? Parse(string[] args)
         {
-            var cleanArgs = args.Where(a => !a.StartsWith("--no-", StringComparison.OrdinalIgnoreCase)).ToArray();
+            var cleanArgs = args.Where(a => !a.StartsWith("--no-", StringComparison.OrdinalIgnoreCase) && a != "--legacy-real-config").ToArray();
             string? exe = null, fixture = null, output = null, label = null;
             for (var index = 0; index + 1 < cleanArgs.Length; index += 2)
             {

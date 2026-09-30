@@ -47,6 +47,7 @@ internal sealed class GroupOverlayWindow : Window
     private readonly IconCacheService _iconCache;
     private readonly Action<LaunchItem> _onExecute;
     private readonly List<MenuCategory> _trail;
+    private readonly DesktopGroupWindow _owner;
 
     private Grid _root = null!;
     private TextBlock _title = null!;
@@ -67,8 +68,9 @@ internal sealed class GroupOverlayWindow : Window
         MenuTheme theme,
         IconCacheService iconCache,
         Action<LaunchItem> onExecute,
-        Window anchor)
+        DesktopGroupWindow owner)
     {
+        _owner = owner;
         _category = category;
         _theme = theme;
         _iconCache = iconCache;
@@ -76,6 +78,7 @@ internal sealed class GroupOverlayWindow : Window
         _trail = [category];
 
         WindowStyle = WindowStyle.None;
+        Title = category.Name;
 
         // Real translucency rather than a blurred backdrop: DWM's blur only samples the
         // wallpaper, so over any open window it collapses to black. A layered window keeps
@@ -87,7 +90,7 @@ internal sealed class GroupOverlayWindow : Window
         Background = Brushes.Transparent;
 
         Content = BuildContent();
-        PlaceNear(anchor);
+        PlaceNear(owner);
 
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewTextInput += OnPreviewTextInput;
@@ -148,6 +151,11 @@ internal sealed class GroupOverlayWindow : Window
             Effect = DesktopGroupWindow.BuildGroupShadow(_theme),
             Child = column
         };
+
+        // Right-clicking the sheet anywhere but on an icon gives the group's own menu —
+        // the same one the panel's header and empty canvas show.
+        shell.ContextMenu = _owner.BuildGroupMenu();
+        shell.PreviewMouseRightButtonDown += (_, _) => shell.ContextMenu = _owner.BuildGroupMenu();
 
         _root = new Grid { Background = Brushes.Transparent, Opacity = 0 };
         _root.Children.Add(shell);
@@ -264,7 +272,18 @@ internal sealed class GroupOverlayWindow : Window
         {
             _tilesByEntry[entry] = tile;
             _openActionsByEntry[entry] = onActivate;
-            tile.ContextMenu = BuildTileContextMenu(entry, onActivate);
+
+            // The panel's own themed menu, rebuilt per click so it reflects the selection.
+            tile.ContextMenu = _owner.BuildEntryMenu(entry, Current, _selectedEntries, onActivate, this);
+            tile.PreviewMouseRightButtonDown += (_, _) =>
+            {
+                if (!_selectedEntries.Contains(entry))
+                {
+                    SelectEntry(entry, additive: false);
+                }
+
+                tile.ContextMenu = _owner.BuildEntryMenu(entry, Current, _selectedEntries, onActivate, this);
+            };
         }
 
         tile.MouseEnter += (_, _) =>
@@ -335,51 +354,34 @@ internal sealed class GroupOverlayWindow : Window
     }
 
     /// <summary>
-    /// A plain context menu (not the panel's themed one) with the same everyday actions
-    /// the panel view's tiles already offer, so App Folder groups are not missing them
-    /// just because their icons live in this sheet instead of the free canvas.
+    /// Repaints after the group changed underneath the sheet — an icon renamed, removed,
+    /// pasted or moved from its own menu. A folder that no longer exists drops out of the
+    /// trail rather than being shown from a stale reference.
     /// </summary>
-    private ContextMenu BuildTileContextMenu(object entry, Action onActivate)
+    internal void Refresh()
     {
-        var menu = new ContextMenu();
-
-        static void AddItem(ContextMenu parent, string header, Action action)
+        if (_closing)
         {
-            var menuItem = new MenuItem { Header = header };
-            menuItem.Click += (_, _) => action();
-            parent.Items.Add(menuItem);
+            return;
         }
 
-        AddItem(menu, LocalizationService.Get("item.open"), onActivate);
-
-        if (entry is LaunchItem item)
+        for (var depth = 1; depth < _trail.Count; depth++)
         {
-            if (ShellCommands.HasFileTarget(item))
+            if (!_trail[depth - 1].Categories.Contains(_trail[depth]))
             {
-                AddItem(menu, LocalizationService.Get("item.runAsAdmin"), () => ShellCommands.RunAsAdministrator(item));
-                AddItem(menu, LocalizationService.Get("item.openFileLocation"), () => ShellCommands.RevealInExplorer(item));
-                menu.Items.Add(new Separator());
-                AddItem(menu, LocalizationService.Get("item.copyPath"), () => ShellCommands.CopyPath(item));
-            }
-
-            AddItem(menu, LocalizationService.Get("item.rename"), () => RenameEntry(item));
-            menu.Items.Add(new Separator());
-            AddItem(menu, LocalizationService.Get("item.removeFromGroup"), () => RemoveEntryOrSelection(item));
-
-            if (ShellCommands.HasFileTarget(item))
-            {
-                menu.Items.Add(new Separator());
-                AddItem(menu, LocalizationService.Get("item.properties"), () => ShellCommands.ShowProperties(item));
+                _trail.RemoveRange(depth, _trail.Count - depth);
+                break;
             }
         }
-        else if (entry is MenuCategory folder)
+
+        var selected = _selectedEntries.ToList();
+        Populate();
+        foreach (var entry in selected.Where(_tilesByEntry.ContainsKey))
         {
-            AddItem(menu, LocalizationService.Get("item.rename"), () => RenameEntry(folder));
-            menu.Items.Add(new Separator());
-            AddItem(menu, LocalizationService.Get("item.removeFromGroup"), () => RemoveEntryOrSelection(folder));
+            _selectedEntries.Add(entry);
         }
 
-        return menu;
+        RefreshSelectionVisuals();
     }
 
     private void NavigateInto(MenuCategory folder)
@@ -459,15 +461,52 @@ internal sealed class GroupOverlayWindow : Window
 
     private void OnDeactivated(object? sender, EventArgs e)
     {
-        if (_armed)
+        if (!_armed)
         {
-            BeginClose();
+            // Still opening: take focus back instead of closing.
+            Activate();
             return;
         }
 
-        // Still opening: take focus back instead of closing.
-        Activate();
+        // Decided once the new foreground window exists: a dialog this sheet opened
+        // (rename, the "remove?" question, a file picker) must not close it.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!_closing && !IsActive && !ForegroundIsOwnDialog())
+            {
+                BeginClose();
+            }
+        }, System.Windows.Threading.DispatcherPriority.Background);
     }
+
+    /// <summary>
+    /// True when the window in front belongs to this process and is not one of the desktop
+    /// groups — i.e. it is a prompt or a message box the sheet is waiting on.
+    /// </summary>
+    private static bool ForegroundIsOwnDialog()
+    {
+        var foreground = GetForegroundWindow();
+        if (foreground == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        GetWindowThreadProcessId(foreground, out var processId);
+        if (processId != (uint)Environment.ProcessId)
+        {
+            return false;
+        }
+
+        return !System.Windows.Application.Current.Windows
+            .OfType<DesktopGroupWindow>()
+            .Any(window => new WindowInteropHelper(window).Handle == foreground);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     private void OnBackdropClick(object sender, MouseButtonEventArgs e)
     {
@@ -482,6 +521,13 @@ internal sealed class GroupOverlayWindow : Window
         {
             e.Handled = true;
             activate();
+            return;
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.C or Key.X && _selectedEntries.Count > 0)
+        {
+            _owner.CopyEntriesToClipboard(_selectedEntries.ToList(), cut: e.Key == Key.X);
+            e.Handled = true;
             return;
         }
 
@@ -500,16 +546,16 @@ internal sealed class GroupOverlayWindow : Window
 
         if (Keyboard.Modifiers == ModifierKeys.None)
         {
-            if (e.Key == Key.Delete)
+            if (e.Key == Key.Delete && _selectedEntries.Count > 0)
             {
-                RemoveSelectedEntries();
+                _owner.RemoveEntries(Current, _selectedEntries.ToList(), this);
                 e.Handled = true;
                 return;
             }
 
             if (e.Key == Key.F2 && _selectedEntries.Count == 1)
             {
-                RenameEntry(_selectedEntries.First());
+                _owner.RenameEntry(Current, _selectedEntries.First(), this);
                 e.Handled = true;
                 return;
             }
@@ -568,101 +614,6 @@ internal sealed class GroupOverlayWindow : Window
         {
             SelectEntry(match, additive: false);
             e.Handled = true;
-        }
-    }
-
-    /// <summary>Right-click's own remove acts on the whole selection when the clicked entry is part of one, matching the panel view.</summary>
-    private void RemoveEntryOrSelection(object entry)
-    {
-        if (!(_selectedEntries.Count > 1 && _selectedEntries.Contains(entry)))
-        {
-            _selectedEntries.Clear();
-            _selectedEntries.Add(entry);
-        }
-
-        RemoveSelectedEntries();
-    }
-
-    private void RemoveSelectedEntries()
-    {
-        if (_selectedEntries.Count == 0)
-        {
-            return;
-        }
-
-        var removable = _selectedEntries
-            .Where(entry => entry is not MenuCategory folder || GroupEntries.Count(folder) == 0)
-            .ToList();
-
-        if (removable.Count == 0)
-        {
-            System.Windows.MessageBox.Show(
-                this,
-                LocalizationService.Get("group.removeOnlyEmpty"),
-                LocalizationService.Get("common.appName"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
-        var names = string.Join(", ", removable.Select(GroupEntries.NameOf));
-        var prompt = LocalizationService.Format("item.removeConfirm", names);
-        if (removable.Count < _selectedEntries.Count)
-        {
-            prompt += Environment.NewLine + Environment.NewLine + LocalizationService.Get("group.removeOnlyEmpty");
-        }
-
-        var confirmed = System.Windows.MessageBox.Show(
-            this,
-            prompt,
-            LocalizationService.Get("common.appName"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (confirmed != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
-        foreach (var entry in removable)
-        {
-            switch (entry)
-            {
-                case LaunchItem item:
-                    Current.Items.Remove(item);
-                    break;
-                case MenuCategory folder:
-                    Current.Categories.Remove(folder);
-                    break;
-            }
-        }
-
-        Populate();
-        PlayNavigationAnimation();
-    }
-
-    private void RenameEntry(object entry)
-    {
-        switch (entry)
-        {
-            case LaunchItem item:
-                var itemPrompt = new Settings.TextPromptWindow(LocalizationService.Get("item.renamePrompt"), item.Name);
-                if (itemPrompt.ShowDialog() == true)
-                {
-                    item.Name = itemPrompt.Value;
-                    Populate();
-                }
-
-                break;
-            case MenuCategory folder:
-                var folderPrompt = new Settings.TextPromptWindow(LocalizationService.Get("group.folderNamePrompt"), folder.Name);
-                if (folderPrompt.ShowDialog() == true)
-                {
-                    folder.Name = folderPrompt.Value;
-                    Populate();
-                }
-
-                break;
         }
     }
 

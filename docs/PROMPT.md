@@ -655,3 +655,89 @@ Após a publicação da versão 1.1.1.1, reportou-se que o atalho do Microsoft T
 
 
 
+
+## 28. Lote de 2026-09-30: colar que não aparecia, ícones que sumiam, menus por contexto, importação
+
+Organize e resolva, nesta ordem:
+
+**Correções, sempre pela causa raiz:**
+
+1. Atalhos colados de uma janela do Explorer só aparecem depois de ordenar, redimensionar
+   ou salvar as Configurações. *(Causa: `FinishStructuralChange` só redesenhava em
+   organização automática; em posição livre — o padrão de todo grupo novo — não repintava
+   nem salvava. Os dois modos passam a repintar e salvar no mesmo ponto.)* Colar, soltar,
+   importar e criar atalho devem passar por um só caminho, que não duplica o mesmo atalho e
+   põe cada novo ícone na primeira célula livre da grade.
+2. Ícones somem: Dev Apps perdeu DBeaver, Parametrizacao e SSMS; Taskbar perdeu Edge,
+   NVIDIA App e WinDirStat. *(Causa medida no `config.json` real: os seis apontavam para
+   `.lnk` da pasta de fixados da barra de tarefas, que o Windows apaga ao desafixar.)* Um
+   atalho que entra num grupo vira uma cópia do app (`%AppData%\SmartDockGroups\Shortcuts`);
+   na inicialização os existentes são adotados e os perdidos recuperados do Menu Iniciar,
+   das áreas de trabalho e do Quick Launch, só quando não houver ambiguidade (vários
+   candidatos apenas se todos abrem o mesmo programa), com backup datado do `config.json`
+   antes de reescrever. O que não puder ser recuperado mostra um aviso no lugar do ícone e
+   oferece "Localizar atalho perdido…". Um atalho que só "usa o ícone do programa" é
+   desenhado a partir do programa com a seta de atalho por cima, porque o shell devolve uma
+   folha em branco para alguns deles (SSMS 22) em processo com DPI; o cache de ícones sobe
+   para `v3`.
+3. No estilo App Folder, o menu de um atalho é diferente, mais curto e ilegível; o clique
+   direito no fundo da folha aberta não faz nada. Use exatamente os menus temáticos do
+   painel nos dois lugares; renomear e remover pela folha precisam salvar; a folha não pode
+   fechar sozinha por causa de um diálogo que ela mesma abriu.
+
+**Regras de conteúdo:**
+
+4. Retire a regra de só remover grupo vazio. Com atalhos dentro, avise quantos serão
+   perdidos e peça confirmação com **Não** como padrão. O mesmo para subpasta com conteúdo.
+5. Dentro de um grupo não pode haver nomes repetidos — digitando (recusar com o motivo e
+   manter o diálogo aberto), colando, soltando, movendo de outro grupo ou importando
+   (numerar " (2)", " (3)"…). Normalize configurações antigas e JSON importado.
+
+**Menus e fluxo:**
+
+6. Reagrupe o menu do clique direito por contexto: o grupo; o que entra nele (novo atalho,
+   importar, colar); Exibição ▸; Aparência ▸ (com Compartilhar ▸); Ordem na área de
+   trabalho ▸; novo grupo, duplicar, atalho na barra, Configurações; fechar e remover. O
+   menu de um ícone termina com o submenu do grupo e "Novo grupo…".
+7. "Novo grupo…" em todos os menus; o diálogo do nome abre perto do mouse (não no centro de
+   uma tela grande) e o grupo nasce ali. A barra de tarefas pode estar em qualquer lado:
+   posicione sempre pela área útil do monitor.
+
+**Visual:**
+
+8. Rolagem no modo painel (sem barra horizontal inútil).
+9. Ctrl+F: os ícones que batem ficam em destaque, o atual em destaque cheio e à vista, os
+   demais esmaecidos.
+10. Compartilhar aparência com os outros grupos, aspecto por aspecto — cor sem impor
+    imagem, imagem sem impor cor, opacidade, espaçamento, tamanho do ícone, ou tudo — agora
+    em todos os grupos, ou como padrão para os grupos criados depois.
+
+**Importação:**
+
+11. Além do JSON, importar vários atalhos de uma pasta num passo só (seleção múltipla,
+    Ctrl+A), escolhendo o grupo de destino ou criando um. Nas Configurações, "Salvar" não
+    pode mais substituir os grupos pela cópia de quando a janela abriu — só quando um JSON
+    foi importado.
+
+**A prova exigida:** testes xUnit para as regras (73 no total); o app de verdade numa pasta
+de dados isolada (`SMARTDOCKGROUPS_DATA_DIR`) com uma **cópia** da configuração real,
+percorrido por mouse, teclado e UI Automation (`GroupProbe --verify-lote`), no executável
+**publicado** self-contained, com cache de ícones copiado e vazio; a sonda de caracterização
+com oráculo `IDENTICO` e comparação master × branch explicando cada divergência; capturas só
+recortadas, e nenhuma com os atalhos pessoais do usuário no repositório público.
+
+## 29. "Criar atalho na barra de tarefas" na pasta certa
+
+O atalho do grupo está indo para `%AppData%\SmartDockGroups\GroupShortcuts`. Ele deveria ir para a
+pasta dos ícones que aparecem na barra (`...\Quick Launch\User Pinned\TaskBar`), achada em qualquer
+computador sem caminho fixo.
+
+*Resposta, medida antes de mudar:* essa pasta não é a barra — o Windows a preenche **ao fixar** (a
+barra é o valor `Taskband\Favorites`), e fora do Explorer o Windows ignora qualquer pedido de fixar
+(`IPinnedList3::Modify` devolve `S_OK` sem efeito; o verbo de fixar nem é listado). Então: grave o
+atalho no **Menu Iniciar do usuário** (known folder `Programs`, pasta "Smart Dock Groups"), com um
+**AppUserModelID próprio por grupo** para cada atalho ser fixável independentemente; abra o Explorer
+nele com a instrução "clique direito → Fixar na barra de tarefas"; mantenha o arquivo em dia quando o
+grupo for renomeado ou removido. Prove fixando pelo menu do Explorer de verdade, conferindo que o
+Windows copia o `.lnk` para `User Pinned\TaskBar`, que um segundo grupo continua fixável, e desafixe
+voltando a barra exatamente ao estado anterior.

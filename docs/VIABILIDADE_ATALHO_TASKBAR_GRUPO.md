@@ -89,6 +89,25 @@ máquina, com 26 atalhos), e a pasta é gravável pelo usuário. O que **foi med
   documentado, com identificadores de item do shell) e reiniciar o Explorer. Esse último
   passo **não foi testado**; só foi medido que a pasta sozinha não basta.
 
+**Atualização de 2026-09-30 (Windows 11 26H2, build 26340), medida:**
+
+- A interface do shell para fixar (`IPinnedList3`, CLSID `90AA3A4E-...`) foi validada lendo a lista
+  real de fixados (`EnumObjects` devolveu os itens da barra; `IsPinned` = `S_OK` num deles). Chamada
+  de outro processo, `Modify(null, pidl, PLMC_EXPLORER)` devolveu `S_OK` e **não fixou nada** (lista,
+  pasta e `Favorites` inalterados). Só o Explorer tem o pedido atendido; contornar isso exigiria
+  se passar pelo Explorer, o que não se faz num produto.
+- O verbo "Pin to taskbar" não é listado a programas (`FolderItem.Verbs()`), nem para o Bloco de
+  Notas; "Unpin from taskbar" é.
+- Na pasta `TaskBar` havia um `Google Chrome.lnk` **não fixado** — mais uma prova de que a pasta é
+  consequência de fixar, não o meio.
+- Pelo menu do Explorer (Shift+clique direito → "Pin to taskbar") o atalho de grupo fixou de
+  verdade, o Windows copiou o `.lnk` para a pasta `TaskBar`, e desafixar restaurou tudo.
+- Sem um AppUserModelID próprio, o atalho herda o estado do `.exe`: um atalho para um programa já
+  fixado aparece como "Unpin". Por isso cada atalho de grupo leva `SmartDockGroups.Group.<id>`.
+
+Decisão do Alexandre (2026-09-30): o atalho vai para o **Menu Iniciar** (pasta "Smart Dock Groups")
+e o usuário fixa com um clique; nada de escrever `Favorites` nem se passar pelo Explorer.
+
 Consequência para o desenho: existe uma **Implementação A+** (fixar de verdade, sem o usuário
 arrastar), com custo e risco maiores que A simples:
 

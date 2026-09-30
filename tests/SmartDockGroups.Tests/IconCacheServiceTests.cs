@@ -163,25 +163,24 @@ public sealed class IconCacheServiceTests : IDisposable
     }
 
     [Fact]
-    public void BuildCacheKey_uses_v2_schema_and_differs_from_legacy_v1()
+    public void BuildCacheKey_uses_v3_schema_so_images_cached_by_earlier_builds_are_extracted_again()
     {
         using var cache = new IconCacheService(_directory);
         const string uri = "msteams://teams.microsoft.com/l/chat/0/0?users=test@example.com";
 
-        // Legacy key without v2: prefix
-        var legacyIdentity = $"{uri.ToLowerInvariant()}|0";
-        var legacyHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(legacyIdentity)));
+        string Hash(string identity) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(identity)));
 
-        // New key uses v2: prefix
-        var v2Identity = $"v2:{uri.ToLowerInvariant()}|0";
-        var v2Hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(v2Identity)));
+        // v1 had no prefix; v2 (1.1.1.2) fixed URIs; v3 draws "use the program's icon" shortcuts from the program.
+        var legacyHash = Hash($"{uri.ToLowerInvariant()}|0");
+        var v2Hash = Hash($"v2:{uri.ToLowerInvariant()}|0");
+        var v3Hash = Hash($"v3:{uri.ToLowerInvariant()}|0");
 
-        Assert.NotEqual(legacyHash, v2Hash);
+        Assert.NotEqual(legacyHash, v3Hash);
+        Assert.NotEqual(v2Hash, v3Hash);
 
-        // Verify that IconCacheService creates files with the new v2 hash
         cache.GetImageSource(uri);
-        var expectedCacheFile = Path.Combine(_directory, v2Hash + ".png");
-        Assert.True(File.Exists(expectedCacheFile));
+        Assert.True(File.Exists(Path.Combine(_directory, v3Hash + ".png")));
+        Assert.False(File.Exists(Path.Combine(_directory, v2Hash + ".png")));
     }
 
     [Fact]

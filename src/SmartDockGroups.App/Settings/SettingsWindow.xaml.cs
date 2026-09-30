@@ -18,6 +18,17 @@ public partial class SettingsWindow : ModernWindow
 
     public event EventHandler? ConfigurationSaved;
 
+    /// <summary>Shortcut files picked here, to be added to the chosen group (or to a new group with the given name).</summary>
+    public event Action<string[], MenuCategory?, string>? ImportShortcutsRequested;
+
+    /// <summary>
+    /// Set once a configuration file has been imported. Only then does "Save" replace the
+    /// groups; otherwise it applies the settings on this window and nothing else. Replacing
+    /// them every time used to undo whatever changed in the groups (a move, a paste) while
+    /// this window was open, because the copy it held was taken when it opened.
+    /// </summary>
+    private bool _configurationImported;
+
     public SettingsWindow(LauncherConfiguration configuration)
     {
         InitializeComponent();
@@ -151,7 +162,30 @@ public partial class SettingsWindow : ModernWindow
 
         SaveBehavior();
 
-        new ConfigurationStore(dialog.FileName).Save(_workingConfiguration);
+        var export = _configurationImported ? _workingConfiguration.Clone() : _target.Clone();
+        export.Behavior = _workingConfiguration.Behavior.Clone();
+        new ConfigurationStore(dialog.FileName).Save(export);
+    }
+
+    /// <summary>
+    /// Several shortcuts in one go: pick them all in the file dialog (a whole folder with
+    /// Ctrl+A), then say which group receives them.
+    /// </summary>
+    private void OnImportShortcutsClick(object sender, RoutedEventArgs e)
+    {
+        var paths = Desktop.DesktopGroupWindow.PickShortcutFiles(this);
+        if (paths.Length == 0)
+        {
+            return;
+        }
+
+        var picker = new ImportTargetWindow(paths.Length, Desktop.DesktopOrganizerService.AllDesktopGroups(_target)) { Owner = this };
+        if (picker.ShowDialog() != true)
+        {
+            return;
+        }
+
+        ImportShortcutsRequested?.Invoke(paths, picker.TargetGroup, picker.NewGroupName);
     }
 
     private void OnImportClick(object sender, RoutedEventArgs e)
@@ -173,14 +207,25 @@ public partial class SettingsWindow : ModernWindow
             return;
         }
 
+        GroupNames.EnsureUnique(imported);
         _workingConfiguration.ReplaceContentsWith(imported);
+        _configurationImported = true;
         LoadBehavior();
     }
 
     private void OnSaveClick(object sender, RoutedEventArgs e)
     {
         SaveBehavior();
-        _target.ReplaceContentsWith(_workingConfiguration);
+        if (_configurationImported)
+        {
+            _target.ReplaceContentsWith(_workingConfiguration);
+            _configurationImported = false;
+        }
+        else
+        {
+            _target.Behavior = _workingConfiguration.Behavior.Clone();
+        }
+
         ConfigurationSaved?.Invoke(this, EventArgs.Empty);
     }
 

@@ -187,6 +187,9 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
 
     public bool HasOpenGroups => _windows.Count > 0;
 
+    /// <summary>The open window of a group, or null when the group is closed.</summary>
+    public DesktopGroupWindow? WindowFor(MenuCategory group) => _windows.GetValueOrDefault(group);
+
     public void ToggleCollapseAll()
     {
         if (_windows.Count == 0)

@@ -49,7 +49,16 @@ internal sealed class IconCacheService : IDisposable
 
         var resolvedPath = ResolveFullPath(targetPath);
         DrawingIcon? icon = null;
-        if (resolvedPath is not null && !resolvedPath.EndsWith(".url", StringComparison.OrdinalIgnoreCase))
+
+        // A shortcut that only says "use the program's icon" is drawn from the program
+        // itself, with the shortcut arrow laid on top — see ShortcutStore.IconSourceForTargetIcon.
+        var programIcon = resolvedPath is null ? null : ShortcutStore.IconSourceForTargetIcon(resolvedPath);
+        if (programIcon is not null)
+        {
+            icon = ExtractWithShortcutArrow(programIcon);
+        }
+
+        if (icon is null && resolvedPath is not null && !resolvedPath.EndsWith(".url", StringComparison.OrdinalIgnoreCase))
         {
             try
             {
@@ -136,6 +145,14 @@ internal sealed class IconCacheService : IDisposable
                         return urlIcon;
                     }
                 }
+            }
+
+            // Same reason as in GetIcon: the shell can return a blank page for such a shortcut.
+            var program = ShortcutStore.IconSourceForTargetIcon(resolvedPath);
+            var fromProgram = program is null ? null : ExtractLargeIcon(program) ?? ExtractFallbackIcon(program);
+            if (fromProgram is not null)
+            {
+                return fromProgram;
             }
 
             var fromShell = ExtractLargeIcon(resolvedPath) ?? ExtractFallbackIcon(resolvedPath);
@@ -391,6 +408,93 @@ internal sealed class IconCacheService : IDisposable
         }
     }
 
+    /// <summary>
+    /// The program's icon at the size the shell would use, with the user's shortcut-arrow
+    /// overlay drawn over it — what Explorer shows for the shortcut when it can draw it.
+    /// </summary>
+    private static DrawingIcon? ExtractWithShortcutArrow(string programPath)
+    {
+        try
+        {
+            using var program = DrawingIcon.ExtractAssociatedIcon(programPath);
+            if (program is null)
+            {
+                return null;
+            }
+
+            using var canvas = program.ToBitmap();
+            using (var arrow = LoadShortcutArrow(canvas.Width))
+            using (var graphics = System.Drawing.Graphics.FromImage(canvas))
+            {
+                if (arrow is not null)
+                {
+                    using var arrowBitmap = arrow.ToBitmap();
+                    graphics.DrawImage(arrowBitmap, 0, 0, canvas.Width, canvas.Height);
+                }
+            }
+
+            var handle = canvas.GetHicon();
+            try
+            {
+                return (DrawingIcon)DrawingIcon.FromHandle(handle).Clone();
+            }
+            finally
+            {
+                DestroyIcon(handle);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or ExternalException)
+        {
+            System.Diagnostics.Debug.WriteLine($"[IconCache] ExtractWithShortcutArrow failed for {programPath}: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The shortcut-arrow overlay, full-canvas like every shell overlay: the user's own
+    /// choice when "Shell Icons, value 29" is set in the registry, otherwise Windows' default.
+    /// </summary>
+    private static DrawingIcon? LoadShortcutArrow(int size)
+    {
+        var reference = Microsoft.Win32.Registry.GetValue(
+            @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons", "29", null) as string;
+        var (file, index) = (@"%SystemRoot%\System32\imageres.dll", -163);
+        if (!string.IsNullOrWhiteSpace(reference))
+        {
+            var comma = reference.LastIndexOf(',');
+            if (comma > 0 && int.TryParse(reference[(comma + 1)..].Trim(), out var parsed))
+            {
+                (file, index) = (reference[..comma].Trim('"', ' '), parsed);
+            }
+            else
+            {
+                (file, index) = (reference.Trim('"', ' '), 0);
+            }
+        }
+
+        if (SHDefExtractIcon(Environment.ExpandEnvironmentVariables(file), index, 0, out var large, out var small, (uint)size) != 0 || large == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        if (small != IntPtr.Zero)
+        {
+            DestroyIcon(small);
+        }
+
+        try
+        {
+            return (DrawingIcon)DrawingIcon.FromHandle(large).Clone();
+        }
+        finally
+        {
+            DestroyIcon(large);
+        }
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern int SHDefExtractIcon(string pszIconFile, int iIndex, uint uFlags, out IntPtr phiconLarge, out IntPtr phiconSmall, uint nIconSize);
+
     private static DrawingIcon? BitmapSourceToIcon(BitmapSource bs)
     {
         try
@@ -548,7 +652,8 @@ internal sealed class IconCacheService : IDisposable
     /// algorithm changes so that stale cached images (especially for non-file URI targets
     /// whose last-write timestamp is always 0) are automatically invalidated and re-extracted.
     /// </summary>
-    private const string CacheSchemaVersion = "v2";
+    /// v3 (2026-09-30): shortcuts that only borrow their program's icon are drawn from the program.
+    private const string CacheSchemaVersion = "v3";
 
     internal static string? ResolveFullPath(string targetPath)
     {
