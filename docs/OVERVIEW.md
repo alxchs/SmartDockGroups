@@ -170,16 +170,13 @@ funciona de fora desta rede, sem custo.
       `PointToScreen` só é chamado sobre a janela de origem (que nunca se
       move durante o arrasto), nunca lido de volta a partir da própria
       janela-fantasma, para não reintroduzir o mesmo tipo de bug de DPI já
-      documentado abaixo para o App Folder. **Não verificado
-      interativamente**: uma tentativa de reproduzir o arrasto via input
-      sintético (`SendInput`/`mouse_event`) não conseguiu acertar os tiles de
-      forma confiável — a janela usa `AllowsTransparency=true` (teste de
-      clique pixel-a-pixel: um clique num pixel transparente atravessa para
-      a janela debaixo) e os elementos internos não expõem uma árvore de
-      UI Automation rica o bastante para mirar com segurança. A correção
-      foi validada por leitura de código (a mesma inconsistência de
-      coordenadas comparada ponto a ponto com o caminho que já funcionava
-      dentro do mesmo grupo) e por compilação, não por reprodução visual.
+      documentado abaixo para o App Folder. **Verificado com o mouse real em
+      2026-09-30** (`GroupProbe --verify-lote --drag`): a tentativa antiga falhava
+      por mirar o ícone sem saber onde ele estava; agora o alvo é achado pela
+      legenda via UI Automation. Apertar sobre "Google Chrome" num grupo
+      organizado por nome, mover em 24 passos e soltar num ponto vazio de um grupo
+      de posição livre: origem 14→13 itens, destino 3→4, e a legenda do ícone parou a
+      17 px do ponto da soltura.
   - A legenda do grupo **não** mostra dica (tooltip): `UpdateHeaderTooltip`
     ainda monta as linhas (estilo, organização, tamanho, opacidade), mas
     termina com `ToolTip = null` — conferido no código em 2026-09-30. A
@@ -693,10 +690,9 @@ Para lançar uma versão nova: editar o `VERSION`, recompilar, commitar.
 - **Importar configuração (JSON) só entra em vigor ao clicar em Salvar** na tela de
   Configurações — para um restore de backup isso é fácil de esquecer. (Importar
   atalhos age na hora.)
-- **Arrastar um ícone para outro grupo em posição livre** agora usa o ponto da
-  soltura como posição (antes o item levava as coordenadas do grupo de origem).
-  Validado por leitura de código e compilação, não por arrasto sintético — a mesma
-  limitação já registrada para o arrasto entre grupos.
+- **Arrastar um ícone para outro grupo em posição livre** usa o ponto da soltura como
+  posição (antes levava as coordenadas do grupo de origem). Comprovado com o mouse real
+  (ver "Arrastar um ícone ... para fora do próprio grupo" acima).
 - **Menu abrindo para fora da tela ou no outro monitor perto das bordas**: relatado
   pelo Alexandre em 2026-09-30, **não reproduzido**. `GroupProbe --verify-lote
   --menu-edges` pôs um grupo em cada canto da área útil dos dois monitores (150% e

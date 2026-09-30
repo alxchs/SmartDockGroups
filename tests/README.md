@@ -99,7 +99,7 @@ tests/GroupProbe/bin/Release/net10.0-windows/GroupProbe.exe --verify-lote ^
 Copia a configuração real (só leitura) e o cache de ícones para `<pasta>\data`, acrescenta dois
 grupos de teste ("Livre (teste)", em posição livre, e "Rolagem (teste)", baixo e cheio) e percorre
 os cenários do lote de 2026-09-30, gravando `report-lote.json` e capturas recortadas `lote-*.png`.
-`--dock` roda só o acoplamento (inclusive os comandos com o app fechado, relançando o exe
+`--drag` arrasta um ícone de um grupo para outro com o mouse real e mede onde ele caiu (os quadros saem com a tela inteira: nunca versionar); `--dock` roda só o acoplamento (inclusive os comandos com o app fechado, relançando o exe
 com `--desktop-action=`); `--menu-edges` mede os menus com o grupo em cada canto de cada monitor.
 `--clean-cache` = cenário "Instalação limpa"; `--reuse-data` reaproveita a pasta de uma rodada
 anterior (atalhos já adotados). Os rótulos procurados nos menus são os do idioma da configuração
