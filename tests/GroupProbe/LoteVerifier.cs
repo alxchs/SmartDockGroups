@@ -40,6 +40,9 @@ internal static class LoteVerifier
     /// <summary>Runs only <see cref="CheckDock"/>.</summary>
     public static bool OnlyDock { get; set; }
 
+    /// <summary>Runs only <see cref="CheckDragBetweenGroups"/>.</summary>
+    public static bool OnlyDrag { get; set; }
+
     private static string _data = "";
     private static Process? _current;
     private static string _out = "";
@@ -73,6 +76,13 @@ internal static class LoteVerifier
         {
             WaitFor(() => Window(FreeGroup) != IntPtr.Zero && Window("Dev Apps") != IntPtr.Zero, 40, "group windows");
             Thread.Sleep(3000);
+
+            if (OnlyDrag)
+            {
+                Step("paste", CheckPaste);
+                Step("dragBetweenGroups", CheckDragBetweenGroups);
+                return 0;
+            }
 
             if (OnlyDock)
             {
@@ -1049,6 +1059,90 @@ internal static class LoteVerifier
             };
         }
 
+        return result;
+    }
+
+    /// <summary>
+    /// Real mouse: press on an icon of "Rolagem (teste)" (arranged by name), move across the
+    /// screen in steps, release over an empty spot of "Livre (teste)" (free placement). Checks the
+    /// icon left the source, joined the target, and sits under the release point — one frame per
+    /// step is saved for a GIF.
+    /// </summary>
+    private static JsonNode CheckDragBetweenGroups()
+    {
+        var source = Window(ScrollGroup);
+        var target = Window(FreeGroup);
+        BringTop(source);
+        BringTop(target);
+        Thread.Sleep(500);
+
+        var caption = FindText(source, "Google Chrome") ?? FindText(source, "Telegram") ?? throw new InvalidOperationException("no icon caption in source");
+        var name = caption.Current.Name;
+        var r = caption.Current.BoundingRectangle;
+        var from = new System.Drawing.Point((int)(r.Left + (r.Width / 2)), (int)(r.Top - 30));
+
+        Win32.GetWindowRect(target, out var tr);
+        var drop = new System.Drawing.Point(tr.Left + (int)(tr.Width * 0.72), tr.Top + (int)(tr.Height * 0.72));
+
+        var sourceBefore = GroupItems(ScrollGroup).Count;
+        var targetBefore = GroupItems(FreeGroup).Count;
+        var frames = Path.Combine(_out, "drag-frames");
+        Directory.CreateDirectory(frames);
+        var union = System.Drawing.Rectangle.Union(
+            new System.Drawing.Rectangle(0, 0, 1, 1),
+            new System.Drawing.Rectangle(Math.Min(from.X, tr.Left) - 60, Math.Min(from.Y, tr.Top) - 60,
+                Math.Abs(drop.X - from.X) + 500, Math.Abs(drop.Y - from.Y) + 300));
+
+        Win32.SetCursorPos(from.X, from.Y);
+        Thread.Sleep(300);
+        Win32.mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(150);
+        const int steps = 24;
+        for (var i = 1; i <= steps; i++)
+        {
+            Win32.SetCursorPos(from.X + ((drop.X - from.X) * i / steps), from.Y + ((drop.Y - from.Y) * i / steps));
+            Thread.Sleep(45);
+            if (i % 2 == 0)
+            {
+                Win32.CaptureRect(union, Path.Combine(frames, $"f{i:D2}.png"));
+            }
+        }
+
+        Thread.Sleep(200);
+        Win32.mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(1500);
+        Win32.CaptureRect(union, Path.Combine(frames, "f99.png"));
+
+        var moved = GroupItems(FreeGroup).FirstOrDefault(i => i["Name"]!.GetValue<string>() == name);
+        Win32.GetWindowRect(target, out var tr2);
+        var result = new JsonObject
+        {
+            ["icon"] = name,
+            ["sourceCount"] = $"{sourceBefore} -> {GroupItems(ScrollGroup).Count}",
+            ["targetCount"] = $"{targetBefore} -> {GroupItems(FreeGroup).Count}",
+            ["joinedTarget"] = moved is not null,
+            ["leftSource"] = GroupItems(ScrollGroup).All(i => i["Name"]!.GetValue<string>() != name)
+        };
+
+        if (moved is not null)
+        {
+            var scale = SystemScale();
+            var x = moved["DesktopIconX"]!.GetValue<double>();
+            var y = moved["DesktopIconY"]!.GetValue<double>();
+            var cap = FindText(target, name)?.Current.BoundingRectangle;
+            result["savedPosition"] = $"{x:0},{y:0}";
+            if (cap is { } c)
+            {
+                var cx = (int)(c.Left + (c.Width / 2));
+                var cy = (int)(c.Top + (c.Height / 2));
+                result["dropPoint"] = $"{drop.X},{drop.Y}";
+                result["iconCaptionCentre"] = $"{cx},{cy}";
+                result["distancePx"] = Math.Round(Math.Sqrt(Math.Pow(cx - drop.X, 2) + Math.Pow(cy - drop.Y, 2)));
+            }
+        }
+
+        Unpin(source);
+        Unpin(target);
         return result;
     }
 
