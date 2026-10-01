@@ -21,7 +21,41 @@
    - Proibido declarar ausência sem busca exaustiva.
    - Proibido aplicar contorno pontual a sintoma repetido sem investigar a causa raiz.
 
-## 6. Verificação: o que vale como prova neste repositório
+## Comece por aqui
+
+**O que é:** Smart Dock Groups, um organizador de área de trabalho para Windows (WPF, .NET 10):
+grupos de atalhos em janelas livres (painel) ou em pasta de apps. O Core (`src/SmartDockGroups.Core`)
+tem modelos e regras sem UI; o App (`src/SmartDockGroups.App`) tem toda a interface.
+
+**Leia antes de mexer, nesta ordem:**
+1. `docs/OVERVIEW.md` — o estado atual: como cada parte funciona, por que, e o que foi medido.
+   É o mapa; procure por aqui antes de procurar no código.
+2. `docs/PROMPT.md` — o histórico do que foi pedido, seção por seção (a última é a mais recente).
+3. `tests/README.md` — o que cada teste e cada modo da sonda cobre.
+
+**Regra de manutenção:** toda mudança de comportamento atualiza `docs/OVERVIEW.md` e `docs/PROMPT.md`
+**no mesmo commit**, e a versão (`VERSION`) sobe quando há instalador novo.
+
+**Compilar e empacotar:** `mkfile r` (Release) e `mkfile p src/SmartDockGroups.App/SmartDockGroups.App.csproj`
+(instalador em `dist\`). Não chame `dotnet` na mão para o instalador.
+
+**Testar a interface sem tocar nos dados do Alexandre:**
+`GroupProbe --verify-lote [--batch|--dock|--drag|--menu-edges] --exe <App.exe> --out <pasta>` roda o app
+de verdade (mouse, teclado e UI Automation) numa pasta de dados isolada (`SMARTDOCKGROUPS_DATA_DIR`), com
+uma **cópia** da configuração real. O app do Alexandre pode estar aberto: não o encerre, a sonda só
+encerra o processo que ela mesma abriu. `SDG_TEST_APPTHEME=Light` testa o app em tema claro.
+
+**Limites que valem sempre:**
+- Nunca `git push` sem o Alexandre confirmar naquele momento. Commit local é livre.
+- Nunca vermelho (nem vermelho com amarelo) em ícone, seleção ou arte.
+- Captura de tela só recortada na janela do app; nunca tela cheia, e nunca versionar captura que mostre
+  atalhos ou dados pessoais dele (o repositório é público). Abra cada PNG antes de aprovar.
+- A interface do Alexandre está em **inglês** (`Language: "en"`) e a barra de tarefas dele fica **em cima**:
+  posicione sempre pela área útil do monitor (`WorkingArea`) e use os rótulos em inglês nos testes de menu.
+- Texto novo de interface entra nos **8 idiomas** (`Localization/Strings.*.json`).
+- Cota/erro da agy não vira trabalho do Claude e vice-versa: se travar, diga o que travou.
+
+## Verificação: o que vale como prova neste repositório
 
 Existem duas camadas, e as duas rodam antes de qualquer publicação:
 
