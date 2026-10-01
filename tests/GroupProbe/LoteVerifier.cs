@@ -43,6 +43,11 @@ internal static class LoteVerifier
     /// <summary>Runs only <see cref="CheckDragBetweenGroups"/>.</summary>
     public static bool OnlyDrag { get; set; }
 
+    /// <summary>Runs only the 2026-09-30 evening batch: menu order, keep on screen, navigation, limit, group links.</summary>
+    public static bool OnlyBatch { get; set; }
+
+    private const string FullGroup = "Cheio (teste)";
+
     private static string _data = "";
     private static Process? _current;
     private static string _out = "";
@@ -76,6 +81,17 @@ internal static class LoteVerifier
         {
             WaitFor(() => Window(FreeGroup) != IntPtr.Zero && Window("Dev Apps") != IntPtr.Zero, 40, "group windows");
             Thread.Sleep(3000);
+
+            if (OnlyBatch)
+            {
+                Step("menuOrder", CheckMenuOrder);
+                Step("paste", CheckPaste);
+                Step("keepOnScreen", CheckKeepOnScreen);
+                Step("navigation", CheckNavigation);
+                Step("limit", CheckLimit);
+                Step("groupLink", CheckGroupLink);
+                return 0;
+            }
 
             if (OnlyDrag)
             {
@@ -181,6 +197,20 @@ internal static class LoteVerifier
             ["Name"] = ScrollGroup, ["IsDesktopGroup"] = true, ["DesktopX"] = left + 420, ["DesktopY"] = top,
             ["DesktopWidth"] = 300, ["DesktopHeight"] = 190, ["IconArrangement"] = "ByName", ["DisplayMode"] = "Panel",
             ["Items"] = crowd, ["Categories"] = new JsonArray()
+        });
+
+        // 29 entries already: room for exactly one more.
+        var full = new JsonArray();
+        for (var i = 1; i <= 29; i++)
+        {
+            full.Add(new JsonObject { ["Name"] = $"Item {i:D2}", ["Type"] = "Application", ["Target"] = @"C:\Windows\System32\notepad.exe", ["IsDesktopPinned"] = true });
+        }
+
+        groups.Add(new JsonObject
+        {
+            ["Name"] = FullGroup, ["IsDesktopGroup"] = true, ["DesktopX"] = left + 1200, ["DesktopY"] = top + 300,
+            ["DesktopWidth"] = 380, ["DesktopHeight"] = 300, ["IconArrangement"] = "ByName", ["DisplayMode"] = "Panel",
+            ["Items"] = full, ["Categories"] = new JsonArray()
         });
 
         // A distinct opacity on Dev Apps, so sharing only the opacity is observable.
@@ -501,7 +531,7 @@ internal static class LoteVerifier
         Win32.GetWindowRect(hwnd, out var rect);
         var click = new System.Drawing.Point(rect.Right - 60, rect.Bottom - 30);
         var before = Win32.VisibleWindowsOf(_pid).ToHashSet();
-        InvokeFromMenu(click, "New group");
+        InvokeFromMenu(click, "New", "Group");
         var prompt = WaitNewWindow(before, 5);
         var result = new JsonObject { ["promptOpened"] = prompt != IntPtr.Zero };
         Unpin(hwnd);
@@ -1143,6 +1173,281 @@ internal static class LoteVerifier
 
         Unpin(source);
         Unpin(target);
+        return result;
+    }
+
+    private static string? HeaderTitle(string group)
+    {
+        var h = Window(group);
+        return AutomationElement.FromHandle(h)
+            .FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text))
+            .Cast<AutomationElement>()
+            .Select(e => e.Current.Name)
+            .FirstOrDefault(n => n == group || n.StartsWith(group + " [", StringComparison.Ordinal));
+    }
+
+    private static JsonNode CheckMenuOrder()
+    {
+        var hwnd = Window(FreeGroup);
+        BringTop(hwnd);
+        Win32.GetWindowRect(hwnd, out var r);
+        var (popup, menu) = OpenMenu(r.Left + 80, r.Top + 14);
+        var top = TopLevelNames(menu);
+        var result = new JsonObject { ["top"] = top };
+        if (menu is not null && FindItem(menu, "New") is { } fresh)
+        {
+            result["newMenu"] = SubNames(fresh);
+        }
+
+        if (popup != IntPtr.Zero)
+        {
+            Win32.TryCapture(popup, Shot("lote2-menu-grupo"));
+        }
+
+        CloseMenus();
+        Unpin(hwnd);
+        return result;
+    }
+
+    private static bool InsideCursorMonitor(Win32.Rect rect)
+    {
+        Win32.GetCursorPos(out var cursor);
+        var wa = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(cursor.X, cursor.Y)).WorkingArea;
+        return rect.Left >= wa.Left && rect.Top >= wa.Top && rect.Right <= wa.Right && rect.Bottom <= wa.Bottom;
+    }
+
+    /// <summary>Real drags that end half outside each side, and across the border between two monitors.</summary>
+    private static JsonNode CheckKeepOnScreen()
+    {
+        var hwnd = Window(FreeGroup);
+        BringTop(hwnd);
+        var screens = System.Windows.Forms.Screen.AllScreens;
+        var cases = new JsonArray();
+
+        void Drag(string label, System.Drawing.Rectangle start, int grabX, Func<Win32.Rect, (int Left, int Top)> destination)
+        {
+            Win32.SetWindowPos(hwnd, new IntPtr(-1), start.Left, start.Top, 0, 0, 0x0001 | 0x0010);
+            Thread.Sleep(700);
+            Win32.GetWindowRect(hwnd, out var r);
+            var from = new System.Drawing.Point(r.Left + grabX, r.Top + 12);
+            var (left, top) = destination(r);
+            var to = new System.Drawing.Point(left + grabX, top + 12);
+            Win32.SetCursorPos(from.X, from.Y);
+            Thread.Sleep(250);
+            Win32.mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+            for (var i = 1; i <= 20; i++)
+            {
+                Win32.SetCursorPos(from.X + ((to.X - from.X) * i / 20), from.Y + ((to.Y - from.Y) * i / 20));
+                Thread.Sleep(25);
+            }
+
+            Win32.mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+            Thread.Sleep(1300);
+            Win32.GetWindowRect(hwnd, out var after);
+            Win32.GetCursorPos(out var cursor);
+            var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(cursor.X, cursor.Y));
+            cases.Add(new JsonObject
+            {
+                ["case"] = label,
+                ["released"] = $"{to.X},{to.Y} on {System.Array.IndexOf(screens, screens.First(sc => sc.DeviceName == screen.DeviceName)) + 1}",
+                ["windowWouldBe"] = $"{left},{top}",
+                ["windowNow"] = $"{after.Left},{after.Top},{after.Right},{after.Bottom}",
+                ["insideMouseMonitor"] = InsideCursorMonitor(after),
+                ["savedInConfig"] = ConfigPosition(FreeGroup)
+            });
+            Log(cases[^1]!.ToJsonString());
+        }
+
+        var primary = screens.First(sc => sc.Primary).WorkingArea;
+        var last = screens.OrderBy(sc => sc.Bounds.Right).Last().WorkingArea;
+        var mid = new System.Drawing.Rectangle(primary.Left + 800, primary.Top + 500, 0, 0);
+        Win32.GetWindowRect(hwnd, out var size);
+        var w = size.Width;
+        var h = size.Height;
+
+        Drag("left half out (monitor 1)", mid, w - 210, r => (primary.Left - (w / 2), r.Top));
+        Drag("top out", mid, 60, r => (r.Left, primary.Top - 60));
+        Drag("bottom out", mid, 60, r => (r.Left, primary.Bottom - 60));
+        Drag("right half out (last monitor)", new System.Drawing.Rectangle(last.Left + 600, last.Top + 300, 0, 0), 60, r => (last.Right - (w / 2), r.Top));
+
+        if (screens.Length > 1)
+        {
+            var left = screens.OrderBy(sc => sc.Bounds.Left).First().WorkingArea;
+            var right = screens.OrderBy(sc => sc.Bounds.Left).Skip(1).First().WorkingArea;
+            var border = left.Right;
+            Drag("across the border, mouse on the left monitor", new System.Drawing.Rectangle(left.Left + 600, left.Top + 300, 0, 0), 60, r => (border - (w / 2), left.Top + 300));
+            Drag("across the border, mouse on the right monitor", new System.Drawing.Rectangle(left.Left + 600, left.Top + 300, 0, 0), w - 210, r => (border - (w / 2), left.Top + 300));
+        }
+
+        Win32.SetWindowPos(hwnd, new IntPtr(-1), mid.Left, mid.Top, 0, 0, 0x0001 | 0x0010);
+        Unpin(hwnd);
+        return cases;
+    }
+
+    private static string ConfigPosition(string group)
+    {
+        var g = Groups(ReadConfig()).First(x => x["Name"]!.GetValue<string>() == group);
+        return $"{g["DesktopX"]:0},{g["DesktopY"]:0} (dip)";
+    }
+
+    /// <summary>Home/End/arrows/Page keys on an arranged group, against reading order computed here from the saved positions.</summary>
+    private static JsonNode CheckNavigation()
+    {
+        var hwnd = Window(ScrollGroup);
+        BringTop(hwnd);
+        Win32.GetWindowRect(hwnd, out var r);
+        Win32.LeftClick(r.Left + 80, r.Top + 12);
+        Thread.Sleep(400);
+        Win32.keybd_event(0x74, 0, 0, UIntPtr.Zero); // F5: lay the arranged group out and save the positions
+        Win32.keybd_event(0x74, 0, 2, UIntPtr.Zero);
+        Thread.Sleep(1200);
+
+        // Expected order, from the positions in the config: rows of the same Y, left to right.
+        var items = GroupItems(ScrollGroup)
+            .Select(i => (Name: i["Name"]!.GetValue<string>(), X: i["DesktopIconX"]!.GetValue<double>(), Y: i["DesktopIconY"]!.GetValue<double>()))
+            .OrderBy(i => i.Y).ThenBy(i => i.X).ToList();
+        var rows = items.GroupBy(i => Math.Round(i.Y)).OrderBy(g => g.Key).Select(g => g.OrderBy(i => i.X).Select(i => i.Name).ToList()).ToList();
+        var flat = rows.SelectMany(x => x).ToList();
+
+        var steps = new JsonArray();
+        bool Step1(string key, Action press, string expected)
+        {
+            press();
+            Thread.Sleep(350);
+            var title = HeaderTitle(ScrollGroup);
+            var ok = title == $"{ScrollGroup} [{expected}]";
+            steps.Add($"{(ok ? "OK " : "BAD")} {key}: title='{title}' expected='[{expected}]'");
+            return ok;
+        }
+
+        const byte Home = 0x24, End = 0x23, Left = 0x25, Up = 0x26, Right = 0x27, Down = 0x28, PgDn = 0x22;
+        void K(byte vk) { Win32.keybd_event(vk, 0, 0, UIntPtr.Zero); Win32.keybd_event(vk, 0, 2, UIntPtr.Zero); }
+
+        var cols = rows[0].Count;
+        Step1("Home", () => K(Home), flat[0]);
+        Step1("Right", () => K(Right), flat[1]);
+        Step1("End", () => K(End), flat[^1]);
+        Step1("Right at the last (wraps to first)", () => K(Right), flat[0]);
+        Step1("Left at the first (wraps to last)", () => K(Left), flat[^1]);
+        Step1("Home again", () => K(Home), flat[0]);
+        Step1("Down", () => K(Down), rows[1][0]);
+        Step1("Up", () => K(Up), flat[0]);
+        Step1("Up at the first row (wraps to last row)", () => K(Up), rows[^1][0]);
+        Step1("Down at the last row (wraps to first row)", () => K(Down), rows[0][0]);
+        Step1("PageDown", () => K(PgDn), rows[1][0]); // the group shows about one row, so a page is one row
+        Win32.TryCapture(hwnd, Shot("lote2-selecao-arredondada"));
+        K(0x1B);
+        Thread.Sleep(350);
+        var cleared = HeaderTitle(ScrollGroup);
+        steps.Add($"{(cleared == ScrollGroup ? "OK " : "BAD")} Escape clears the selection: title='{cleared}'");
+        Unpin(hwnd);
+        return new JsonObject { ["visualRows"] = rows.Count, ["columns"] = cols, ["steps"] = steps };
+    }
+
+    private static JsonNode CheckLimit()
+    {
+        var hwnd = Window(FullGroup);
+        BringTop(hwnd);
+        var files = new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "WinDirStat", "WinDirStat.lnk"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "NVIDIA Corporation", "NVIDIA App.lnk"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "Microsoft Edge.lnk")
+        }.Where(File.Exists).ToArray();
+        SetClipboardFiles(files);
+        Win32.GetWindowRect(hwnd, out var r);
+
+        var before = Win32.VisibleWindowsOf(_pid).ToHashSet();
+        var result = new JsonObject { ["before"] = GroupItems(FullGroup).Count };
+        InvokeFromMenu(new System.Drawing.Point(r.Left + 80, r.Top + 14), "Paste");
+        var box = WaitNewWindow(before, 5);
+        result["warningShown"] = box != IntPtr.Zero;
+        if (box != IntPtr.Zero)
+        {
+            Thread.Sleep(400);
+            var root = AutomationElement.FromHandle(box);
+            result["warningText"] = string.Join(" | ", root.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text))
+                .Cast<AutomationElement>().Select(e => e.Current.Name));
+            Win32.TryCapture(box, Shot("lote2-limite-30"));
+            Button(root, "OK")?.Invoke();
+            Thread.Sleep(500);
+        }
+
+        result["afterPaste"] = GroupItems(FullGroup).Count;
+
+        before = Win32.VisibleWindowsOf(_pid).ToHashSet();
+        InvokeFromMenu(new System.Drawing.Point(r.Left + 80, r.Top + 14), "New", "Shortcut");
+        var second = WaitNewWindow(before, 4);
+        result["newShortcutWarning"] = second != IntPtr.Zero && Win32.TitleOf(second) == "Smart Dock Groups" || second != IntPtr.Zero;
+        if (second != IntPtr.Zero)
+        {
+            Button(AutomationElement.FromHandle(second), "OK")?.Invoke();
+            Thread.Sleep(400);
+        }
+
+        result["afterNewShortcut"] = GroupItems(FullGroup).Count;
+        Unpin(hwnd);
+        return result;
+    }
+
+    private static JsonNode CheckGroupLink()
+    {
+        var hwnd = Window(FreeGroup);
+        BringTop(hwnd);
+        Win32.GetWindowRect(hwnd, out var r);
+        var header = new System.Drawing.Point(r.Left + 80, r.Top + 14);
+        var result = new JsonObject();
+
+        // The list: every other group, never this one.
+        var (popup, menu) = OpenMenu(header.X, header.Y);
+        var newItem = FindItem(menu!, "New")!;
+        ((ExpandCollapsePattern)newItem.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+        Thread.Sleep(500);
+        var linkItem = FindItem(newItem, "Shortcut to a group")!;
+        result["linkMenu"] = SubNames(linkItem);
+        CloseMenus();
+
+        InvokeFromMenu(header, "New", "Shortcut to a group", "Dev Apps");
+        Thread.Sleep(1200);
+        result["linkAdded"] = GroupItems(FreeGroup).Any(i => i["Type"]?.GetValue<string>() == "GroupLink" && i["Name"]!.GetValue<string>() == "Dev Apps");
+
+        var (_, menu2) = OpenMenu(header.X, header.Y);
+        var again = FindItem(menu2!, "New")!;
+        ((ExpandCollapsePattern)again.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+        Thread.Sleep(500);
+        var link2 = FindItem(again, "Shortcut to a group")!;
+        ((ExpandCollapsePattern)link2.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();
+        Thread.Sleep(500);
+        var devEntry = FindItem(link2, "Dev Apps");
+        result["secondLinkToDevAppsEnabled"] = devEntry?.Current.IsEnabled;
+        CloseMenus();
+        Win32.TryCapture(hwnd, Shot("lote2-atalho-de-grupo"));
+
+        // Clicking it with Dev Apps closed: it opens, comes forward and its first icon is selected.
+        var dev = Window("Dev Apps");
+        Win32.GetWindowRect(dev, out var dr);
+        InvokeFromMenu(new System.Drawing.Point(dr.Left + 60, dr.Top + 12), "Close group");
+        Thread.Sleep(1200);
+        result["devAppsClosed"] = Window("Dev Apps") == IntPtr.Zero;
+
+        BringTop(hwnd);
+        var caption = FindText(hwnd, "Dev Apps") ?? throw new InvalidOperationException("link caption not found");
+        var c = caption.Current.BoundingRectangle;
+        var point = new System.Drawing.Point((int)(c.Left + (c.Width / 2)), (int)(c.Top - 25));
+        Win32.LeftClick(point.X, point.Y);
+        Thread.Sleep(120);
+        Win32.LeftClick(point.X, point.Y);
+        WaitFor(() => Window("Dev Apps") != IntPtr.Zero, 8, "Dev Apps reopened by its link");
+        Thread.Sleep(1500);
+
+        var firstByPosition = GroupItems("Dev Apps")
+            .Select(i => (Name: i["Name"]!.GetValue<string>(), X: i["DesktopIconX"]?.GetValue<double>() ?? 0, Y: i["DesktopIconY"]?.GetValue<double>() ?? 0))
+            .OrderBy(i => Math.Round(i.Y / 40)).ThenBy(i => i.X).First().Name;
+        result["reopenedTitle"] = HeaderTitle("Dev Apps");
+        result["expectedFirstIcon"] = firstByPosition;
+        result["isForeground"] = Win32.GetForegroundWindow() == Window("Dev Apps");
+        Win32.TryCapture(Window("Dev Apps"), Shot("lote2-grupo-aberto-pelo-atalho"));
+        Unpin(hwnd);
         return result;
     }
 

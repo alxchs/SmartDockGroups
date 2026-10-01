@@ -172,5 +172,10 @@
   "settings.importNewGroup": "(New group...)",
   "settings.importDone": "{0} shortcut(s) added to the group \"{1}\".",
   "group.dockAll": "Dock all groups",
-  "group.undockAll": "Undock groups"
+  "group.undockAll": "Undock groups",
+  "group.newMenuShortcut": "Shortcut...",
+  "group.newMenuGroup": "Group...",
+  "group.newMenuGroupLink": "Shortcut to a group",
+  "group.limitReached": "The limit is {0} items per group ({1} not added). It is better to create a new group.",
+  "group.linkRefused": "A group cannot hold a shortcut to itself, nor two shortcuts to the same group."
 }

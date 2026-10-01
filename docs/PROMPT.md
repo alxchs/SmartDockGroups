@@ -757,3 +757,18 @@ voltando a barra exatamente ao estado anterior.
    volta, com efeito de expandir/colapsar. Nunca dois abertos. Antes de acoplar, guarde
    posição e tamanho de cada grupo (e estado e estilo); **desacoplar** devolve cada um ao
    local de antes. O estado sobrevive a reabrir o app; arrastar um título move a pilha.
+
+## 31. Lote de 2026-09-30 (noite): ficar na tela, navegação, limite e atalhos de grupo (1.1.4.0)
+
+1. Ao soltar um grupo meio fora da tela, ele volta para dentro, pelos quatro lados. Solto entre dois
+   monitores, vai para o monitor onde estava o mouse na soltura.
+2. Setas, Page Up/Down, Home e End seguem a posição em que os ícones estão na tela, não a ordem de
+   criação ou de ordenação inicial, e não têm começo nem fim (voltam do último ao primeiro).
+3. O fundo do ícone selecionado tem cantos arredondados. O título do grupo mostra o ícone selecionado
+   entre colchetes; sem seleção, só o título.
+4. No máximo 30 atalhos por grupo; ao mover, colar ou adicionar o 31º, avisar do limite e sugerir um novo
+   grupo.
+5. Um grupo pode conter um atalho para outro grupo (nunca para si, nunca dois para o mesmo). Clicar nele
+   mostra o grupo e foca o primeiro elemento.
+6. Menus: Configurações por último; um menu "Novo" com Atalho e Grupo (e o atalho para um grupo); Renomear,
+   Colapsar/Expandir, Acoplar, Duplicar, Fechar e Remover numa mesma seção, antes de Configurações.

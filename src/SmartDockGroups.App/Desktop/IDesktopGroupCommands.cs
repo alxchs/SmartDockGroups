@@ -31,6 +31,12 @@ internal interface IDesktopGroupCommands
     /// <summary>Opens the app's global settings — reachable from any group, not just the tray.</summary>
     void OpenSettings();
 
+    /// <summary>Every desktop group, for "shortcut to a group".</summary>
+    IReadOnlyList<MenuCategory> DesktopGroups { get; }
+
+    /// <summary>What a shortcut to a group does: open it if closed, show it, focus its first icon.</summary>
+    void FocusGroup(string groupId);
+
     /// <summary>True while the groups are docked in one stack.</summary>
     bool IsDocked { get; }
 

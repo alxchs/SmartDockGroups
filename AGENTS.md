@@ -26,7 +26,7 @@
 Existem duas camadas, e as duas rodam antes de qualquer publicação:
 
 ```
-dotnet test tests/SmartDockGroups.Tests          # 82 assercoes, ~4 s
+dotnet test tests/SmartDockGroups.Tests          # 93 assercoes, ~4 s
 dotnet build -c Release tests/GroupProbe     # sonda de caracterizacao
 ```
 

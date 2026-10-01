@@ -121,17 +121,18 @@ funciona de fora desta rede, sem custo.
   — cabeçalho, botão "…", canvas vazio, ladrilho fechado do App Folder,
   fundo da folha aberta do App Folder e o submenu "Grupo "<nome>"" no menu
   de cada ícone. Desde 2026-09-30 ele é **agrupado por contexto**, em vez de
-  uma lista corrida de ~20 itens:
-  1. o grupo em si — Expandir/Colapsar (ou Abrir pasta), Renomear…;
-  2. o que entra nele — Novo atalho…, Importar atalhos…, Colar;
-  3. **Exibição ▸** — estilo painel/pasta de apps, organizar automaticamente,
+  uma lista corrida de ~20 itens (ordem desde a 1.1.4.0):
+  1. **Novo ▸** — Atalho…, Grupo…, Atalho para um grupo ▸ (lista os outros
+     grupos); Importar atalhos…; Colar;
+  2. **Exibição ▸** — estilo painel/pasta de apps, organizar automaticamente,
      tamanho do ícone ▸, espaçamento entre ícones ▸;
-  4. **Aparência ▸** — cor de fundo…, imagem de fundo…, papel de parede como
+  3. **Aparência ▸** — cor de fundo…, imagem de fundo…, papel de parede como
      fundo, remover imagem, opacidade ▸, **Compartilhar com os outros grupos ▸**;
-  5. **Ordem na área de trabalho ▸** — frente/fundo e envio para monitores;
-  6. grupos e app — **Novo grupo…**, Duplicar, Atalho na barra de tarefas,
-     Configurações…;
-  7. Fechar grupo, Remover grupo….
+  4. **Ordem na área de trabalho ▸** — frente/fundo e envio para monitores; Atalho na
+     barra de tarefas;
+  5. **uma seção só para o grupo**: Renomear…, Expandir/Colapsar (ou Abrir pasta),
+     Acoplar/Desacoplar, Duplicar, Fechar grupo, Remover grupo…;
+  6. **Configurações… sempre por último.**
 
   O menu de um ícone (`BuildEntryMenu`) segue a mesma lógica — abrir
   (executar como admin, abrir local), área de transferência (recortar,
@@ -177,6 +178,43 @@ funciona de fora desta rede, sem custo.
       organizado por nome, mover em 24 passos e soltar num ponto vazio de um grupo
       de posição livre: origem 14→13 itens, destino 3→4, e a legenda do ícone parou a
       17 px do ponto da soltura.
+  - **Limite de 30 entradas por grupo** (`GroupLimits`, no Core; atalhos + subpastas).
+    Colar, soltar, importar, criar e mover de outro grupo passam pelo mesmo teste: o que
+    couber entra, o resto fica onde estava (um arraste recusado não perde nada) e um aviso
+    diz o limite, quantos não entraram e que o ideal é criar um novo grupo. Grupos que já
+    passavam de 30 numa configuração antiga ficam como estão, mas não aceitam mais nada.
+  - **Atalho para um grupo** (`LaunchItemType.GroupLink`; `Target` = `Id` do grupo): vem de
+    Novo ▸ Atalho para um grupo ▸, nunca digitado no editor. Um grupo não aceita atalho
+    para si mesmo nem dois para o mesmo grupo (`GroupLimits.CanHoldLinkTo`, valendo
+    também para arrastar de outro grupo). Clicar abre o grupo se estiver fechado, traz
+    para frente, e seleciona o **primeiro ícone na ordem visual** (a barra de tarefas usa o
+    mesmo caminho); com os grupos acoplados, abre o dele na pilha. O nome acompanha o do
+    grupo (renomear atualiza os atalhos) e apagar o grupo apaga os atalhos para ele.
+    Provado no app real: o atalho aparece, a segunda entrada fica desabilitada, e com o
+    grupo fechado o duplo clique o reabre com o título "Dev Apps [DBeaver Community]".
+  - **Navegação por teclado pela posição na tela** (`TileNavigation`, no Core): as linhas
+    vêm da posição dos ícones desenhados, não da ordem de criação (que fazia a seleção
+    "pular"). Setas esquerda/direita andam na ordem de leitura; cima/baixo mantêm a coluna
+    mais próxima; Page Up/Down saltam as linhas visíveis; Home/End vão ao primeiro/último.
+    **Não há começo nem fim**: passar do último vai ao primeiro e vice-versa (linhas e
+    colunas). Shift estende a seleção pela mesma ordem. Só no modo painel. Medido por teclas
+    reais num grupo de 15 ícones em 5 linhas: 12 passos, todos como calculados a partir
+    das posições salvas.
+  - O ícone selecionado (e o realce do mouse e da busca) é uma **placa de cantos
+    arredondados** (`WrapTile`, raio 10); o título do grupo mostra a seleção entre colchetes
+    — `Grupo [Item]`, `Grupo [3]` para vários, só `Grupo` sem seleção. O `Title` da janela
+    continua sendo o nome puro. O menu de um ícone agora é refeito a cada clique direito e
+    seleciona o ícone se ele estava fora da seleção; antes agia sobre a seleção da hora
+    em que o ícone foi desenhado.
+  - **Um grupo nunca fica fora do monitor** (`KeepOnScreen`): ao soltar o arrasto do título
+    ou do ladrilho, ao expandir e ao redimensionar, os quatro lados voltam para dentro da
+    área útil. Se a soltura deixa o grupo entre dois monitores, ele vai para o monitor onde
+    estava o **mouse** na soltura. Esse monitor é perguntado em contexto "por monitor"
+    (`SetThreadDpiAwarenessContext`) porque, com monitores de escalas diferentes, este
+    processo (ciente do DPI do sistema) via o cursor em x=3915 do segundo monitor como
+    pertencente ao primeiro — medido e corrigido em 2026-09-30. Provado com arrastes reais:
+    metade fora pela esquerda, topo, rodapé e direita, e sobre a divisa com o mouse de
+    cada lado (6 de 6).
   - A legenda do grupo **não** mostra dica (tooltip): `UpdateHeaderTooltip`
     ainda monta as linhas (estilo, organização, tamanho, opacidade), mas
     termina com `ToolTip = null` — conferido no código em 2026-09-30. A
@@ -716,7 +754,7 @@ de serialização de `config.json`, extração e corte de transparência de íco
 `IconCacheService`, schema versionado `v3`, resolução unívoca de atalhos `.url` de área de trabalho e rejeição sob ambiguidade, renderização do ladrilho `AppFolderTile`,
 e as regras do lote de 2026-09-30 em `GroupRulesTests`: nomes únicos, compartilhamento por aspecto, `GroupDefaults`
 e recuperação de atalho perdido sem palpite; `DockTests`: pilha acoplada, restauração, persistência e verbos do menu
-da área de trabalho) — 82 no total.
+da área de trabalho; `NavigationAndLimitTests`: navegação por posição com voltas, limite de 30 e atalhos de grupo) — 93 no total.
 
 Além dos testes unitários, há a sonda de caracterização em C# (`tests/GroupProbe`) que sobe
 a aplicação de verdade com um fixture de teste, valida backup por hash, mede a geometria
@@ -736,7 +774,8 @@ da configuração real (mesmos tipos de item) e percorre: reparo dos atalhos na 
 livre (e colar de novo sem duplicar), rolagem, Ctrl+F, menus do grupo e do ícone, nome repetido, remover
 grupo com atalhos, menus da folha do App Folder, novo grupo perto do mouse, compartilhar só a opacidade e
 importar atalhos pelas Configurações. `--dock` roda só o acoplamento (acoplar, expandir, arrastar, reabrir,
-desacoplar e os comandos com o app fechado); `--menu-edges` só a posição dos menus nas bordas.
+desacoplar e os comandos com o app fechado); `--menu-edges` só a posição dos menus nas bordas; `--batch` a ordem do menu,
+manter na tela (arrastes reais), navegação por teclas, limite de 30 e atalho de grupo.
 `--clean-cache` troca o cenário "Upgrade" (cache de ícones copiado)
 por "Instalação limpa". Passou inteiro no executável **publicado** self-contained 1.1.2.0 nos dois cenários.
 

@@ -162,5 +162,10 @@
   "desktop.openAllGroups": "Apri tutti i gruppi del desktop",
   "desktop.closeAllGroups": "Chiudi tutti i gruppi del desktop",
   "desktop.groupsMenu": "Gruppi del desktop",
-  "group.windowOrder": "Ordine sul desktop"
+  "group.windowOrder": "Ordine sul desktop",
+  "group.newMenuShortcut": "Collegamento...",
+  "group.newMenuGroup": "Gruppo...",
+  "group.newMenuGroupLink": "Collegamento a un gruppo",
+  "group.limitReached": "Il limite è di {0} elementi per gruppo ({1} non aggiunti). Meglio creare un nuovo gruppo.",
+  "group.linkRefused": "Un gruppo non può contenere un collegamento a se stesso né due collegamenti allo stesso gruppo."
 }

@@ -157,7 +157,19 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
             }
 
             var theme = category.ThemeOverride ?? configuration.Theme;
-            var window = new DesktopGroupWindow(category, theme, iconCache, LaunchExecutor.Execute, onLayoutChanged, onDeleteRequested, commands);
+            void Execute(LaunchItem item)
+            {
+                if (item.Type == LaunchItemType.GroupLink)
+                {
+                    commands?.FocusGroup(item.Target);
+                }
+                else
+                {
+                    LaunchExecutor.Execute(item);
+                }
+            }
+
+            var window = new DesktopGroupWindow(category, theme, iconCache, Execute, onLayoutChanged, onDeleteRequested, commands);
             window.Closed += (_, _) => OnWindowClosed(category, window);
             window.Show();
             _windows[category] = window;
@@ -533,8 +545,28 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
             return false;
         }
 
+        // Docked, a collapsed group is a title bar in the stack: showing it means opening it there.
+        if (IsDocked && _configuration!.Dock.ExpandedId != group.Id)
+        {
+            _configuration.Dock.ExpandedId = group.Id;
+            RelayoutDock(animate: true);
+        }
+
         window.BringForwardAndPulse();
         return true;
+    }
+
+    /// <summary>Removes every shortcut to <paramref name="groupId"/>, wherever it sits. True when any was removed.</summary>
+    public static bool RemoveLinksTo(IMenuContainer container, string groupId)
+    {
+        var removed = false;
+        foreach (var category in container.Categories)
+        {
+            removed |= category.Items.RemoveAll(i => i.Type == LaunchItemType.GroupLink && i.Target == groupId) > 0;
+            removed |= RemoveLinksTo(category, groupId);
+        }
+
+        return removed;
     }
 
     public static bool RemoveCategory(IMenuContainer container, MenuCategory target)

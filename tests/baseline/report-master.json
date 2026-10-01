@@ -1,6 +1,6 @@
 {
   "label": "master",
-  "exeFileVersion": "1.1.2.0",
+  "exeFileVersion": "1.1.3.0",
   "fixture": "probe-config.json",
   "groupWindowCount": 2,
   "windows": [
@@ -48,18 +48,32 @@
       "items": [
         {
           "depth": 0,
-          "name": "Collapse",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Rename...",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "New shortcut...",
-          "enabled": true
+          "name": "New",
+          "enabled": true,
+          "children": [
+            {
+              "depth": 1,
+              "name": "Shortcut...",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Group...",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Shortcut to a group",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "Beta Folder",
+                  "enabled": true
+                }
+              ]
+            }
+          ]
         },
         {
           "depth": 0,
@@ -232,7 +246,17 @@
         },
         {
           "depth": 0,
-          "name": "New group...",
+          "name": "Create taskbar shortcut",
+          "enabled": true
+        },
+        {
+          "depth": 0,
+          "name": "Rename...",
+          "enabled": true
+        },
+        {
+          "depth": 0,
+          "name": "Collapse",
           "enabled": true
         },
         {
@@ -247,22 +271,17 @@
         },
         {
           "depth": 0,
-          "name": "Create taskbar shortcut",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Settings...",
-          "enabled": true
-        },
-        {
-          "depth": 0,
           "name": "Close group",
           "enabled": true
         },
         {
           "depth": 0,
           "name": "Remove group...",
+          "enabled": true
+        },
+        {
+          "depth": 0,
+          "name": "Settings...",
           "enabled": true
         }
       ]
@@ -273,18 +292,32 @@
       "items": [
         {
           "depth": 0,
-          "name": "Collapse",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Rename...",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "New shortcut...",
-          "enabled": true
+          "name": "New",
+          "enabled": true,
+          "children": [
+            {
+              "depth": 1,
+              "name": "Shortcut...",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Group...",
+              "enabled": true
+            },
+            {
+              "depth": 1,
+              "name": "Shortcut to a group",
+              "enabled": true,
+              "children": [
+                {
+                  "depth": 2,
+                  "name": "Alpha Panel",
+                  "enabled": true
+                }
+              ]
+            }
+          ]
         },
         {
           "depth": 0,
@@ -457,7 +490,17 @@
         },
         {
           "depth": 0,
-          "name": "New group...",
+          "name": "Create taskbar shortcut",
+          "enabled": true
+        },
+        {
+          "depth": 0,
+          "name": "Rename...",
+          "enabled": true
+        },
+        {
+          "depth": 0,
+          "name": "Collapse",
           "enabled": true
         },
         {
@@ -472,22 +515,17 @@
         },
         {
           "depth": 0,
-          "name": "Create taskbar shortcut",
-          "enabled": true
-        },
-        {
-          "depth": 0,
-          "name": "Settings...",
-          "enabled": true
-        },
-        {
-          "depth": 0,
           "name": "Close group",
           "enabled": true
         },
         {
           "depth": 0,
           "name": "Remove group...",
+          "enabled": true
+        },
+        {
+          "depth": 0,
+          "name": "Settings...",
           "enabled": true
         }
       ]
