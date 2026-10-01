@@ -780,3 +780,13 @@ voltando a barra exatamente ao estado anterior.
 2. Um amigo achou o app lento para abrir. Meça (não suponha): menus de clique direito completos eram
    montados para cada ícone na abertura; monte-os só quando o usuário clicar. Pré-compile (ReadyToRun) o publish.
 3. Com os grupos acoplados, arrastar um deles leva os outros junto, durante o arrasto.
+
+## 33. Um prompt que devolva o projeto numa única interação (1.1.5.1)
+
+Monte um prompt como se o projeto não existisse, que entregue a outra IA, numa só interação, exatamente o
+app como está, e commite junto com a documentação. Resposta: `docs/PROMPT_GERACAO_UNICA.md` reescrito do
+zero a partir do código da 1.1.5.1 (não da versão antiga, que descrevia a 1.1.1.0), com apêndices **gerados**
+dos arquivos reais (`tools/atualizar_apendices_prompt.py`) e uma seção de como provar a entrega. Auditoria
+do prompt contra o código: todo ícone e toda chave de texto usados estão nos apêndices — e isso revelou
+que seis idiomas estavam sem 10 chaves (corrigido, com teste) e que existem chaves e uma janela de tema
+sem uso (documentado como código morto).

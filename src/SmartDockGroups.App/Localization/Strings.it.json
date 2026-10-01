@@ -167,5 +167,15 @@
   "group.newMenuGroup": "Gruppo...",
   "group.newMenuGroupLink": "Collegamento a un gruppo",
   "group.limitReached": "Il limite è di {0} elementi per gruppo ({1} non aggiunti). Meglio creare un nuovo gruppo.",
-  "group.linkRefused": "Un gruppo non può contenere un collegamento a se stesso né due collegamenti allo stesso gruppo."
+  "group.linkRefused": "Un gruppo non può contenere un collegamento a se stesso né due collegamenti allo stesso gruppo.",
+  "desktop.allAppFolder": "Tutti i gruppi: stile cartella app",
+  "desktop.allPanel": "Tutti i gruppi: stile pannello",
+  "desktop.contextMenuRoot": "Smart Dock Groups",
+  "group.close": "Chiudi gruppo",
+  "group.newShortcut": "Nuovo collegamento...",
+  "group.paste": "Incolla",
+  "group.searchCount": "{0} trovato/i",
+  "group.searchPlaceholder": "Trova...",
+  "item.copy": "Copia",
+  "item.cut": "Taglia"
 }

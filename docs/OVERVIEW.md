@@ -413,8 +413,10 @@ funciona de fora desta rede, sem custo.
   rodapé da área útil; se nem as barras cabem, a pilha inteira sobe (nunca acima do
   topo da área útil — a barra de tarefas pode estar em cima). Arrastar o título de
   qualquer um move a pilha; os comandos "todos para este monitor" / "para o monitor
-  N" / "reunir" movem a pilha; as bordas de redimensionar e a troca de estilo ficam
-  desligadas. Grupos abertos ou criados durante o acoplamento entram no fim (com a
+  N" / "reunir" movem a pilha; as bordas de redimensionar ficam desligadas. **Exibição ▸ Estilo
+  continua valendo acoplado** (`DockedStyle`/`DockToggleStyle`): o grupo segue sendo uma barra na
+  pilha, e a opção troca o estilo guardado, aplicado ao desacoplar — o rótulo mostra o estilo guardado.
+  (Antes ficava desabilitada, e "sumia" para quem acoplou os grupos; 1.1.5.1.) Grupos abertos ou criados durante o acoplamento entram no fim (com a
   aparência deles guardada antes); fechar um tira-o da pilha sem deixar buraco. O
   estado fica no `config.json`: o app reaberto volta acoplado. **Desacoplar** devolve
   cada grupo ao que foi guardado. Provado no app real (`GroupProbe --verify-lote
@@ -462,6 +464,14 @@ funciona de fora desta rede, sem custo.
     lógica, independente do Ctrl+F que já existia — o Ctrl+F abre uma caixa
     de busca com contador e lista; digitar sem Ctrl+F só pula a seleção,
     sem abrir nada na tela, do jeito que o Explorer sempre fez.
+- **Idiomas completos (1.1.5.1).** Seis idiomas (de, es, it, ja, pl, ru) estavam sem 10 chaves — "Fechar
+  grupo", "Colar", "Recortar", "Copiar", a busca e os rótulos "todos em pasta/painel" do menu da área de
+  trabalho — e mostravam inglês (o plano B de `LocalizationService.Get`). Achado ao auditar o prompt de
+  geração; corrigido e travado por teste. O app em alemão foi aberto e o menu do grupo lido por UI
+  Automation ("Einfügen", "Gruppe schließen"…).
+- **`docs/PROMPT_GERACAO_UNICA.md`** — a especificação do zero, para entregar a outra IA e obter este
+  app numa única interação. Os apêndices (paleta, ícones, textos en/pt, constantes) são **gerados** por
+  `tools/atualizar_apendices_prompt.py`; rode-o ao mudar paleta, ícones, textos ou as constantes citadas.
 - **`GroupEntries`** — enumera os itens de um grupo (subpastas + itens fixados)
   na mesma ordem para o ladrilho, a folha e o painel concordarem sobre "o que
   tem dentro".
@@ -771,7 +781,7 @@ de serialização de `config.json`, extração e corte de transparência de íco
 `IconCacheService`, schema versionado `v3`, resolução unívoca de atalhos `.url` de área de trabalho e rejeição sob ambiguidade, renderização do ladrilho `AppFolderTile`,
 e as regras do lote de 2026-09-30 em `GroupRulesTests`: nomes únicos, compartilhamento por aspecto, `GroupDefaults`
 e recuperação de atalho perdido sem palpite; `DockTests`: pilha acoplada, restauração, persistência e verbos do menu
-da área de trabalho; `NavigationAndLimitTests`: navegação por posição com voltas, limite de 30 e atalhos de grupo) — 93 no total.
+da área de trabalho; `NavigationAndLimitTests`: navegação por posição com voltas, limite de 30 e atalhos de grupo; `LocalizationCompletenessTests`: os oito idiomas com as mesmas chaves e marcadores, e toda chave usada pelo código existe) — 101 no total.
 
 Além dos testes unitários, há a sonda de caracterização em C# (`tests/GroupProbe`) que sobe
 a aplicação de verdade com um fixture de teste, valida backup por hash, mede a geometria

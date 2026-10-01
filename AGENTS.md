@@ -32,6 +32,9 @@ tem modelos e regras sem UI; o App (`src/SmartDockGroups.App`) tem toda a interf
    É o mapa; procure por aqui antes de procurar no código.
 2. `docs/PROMPT.md` — o histórico do que foi pedido, seção por seção (a última é a mais recente).
 3. `tests/README.md` — o que cada teste e cada modo da sonda cobre.
+4. `docs/PROMPT_GERACAO_UNICA.md` — a especificação completa do zero (todos os números, regras e textos).
+   Seus apêndices são gerados: depois de mudar paleta, ícones, textos ou constantes, rode
+   `python tools/atualizar_apendices_prompt.py` e confira o `git diff`.
 
 **Regra de manutenção:** toda mudança de comportamento atualiza `docs/OVERVIEW.md` e `docs/PROMPT.md`
 **no mesmo commit**, e a versão (`VERSION`) sobe quando há instalador novo.
@@ -60,7 +63,7 @@ encerra o processo que ela mesma abriu. `SDG_TEST_APPTHEME=Light` testa o app em
 Existem duas camadas, e as duas rodam antes de qualquer publicação:
 
 ```
-dotnet test tests/SmartDockGroups.Tests          # 93 assercoes, ~4 s
+dotnet test tests/SmartDockGroups.Tests          # 101 assercoes, ~4 s
 dotnet build -c Release tests/GroupProbe     # sonda de caracterizacao
 ```
 

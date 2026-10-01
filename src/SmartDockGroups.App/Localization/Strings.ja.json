@@ -167,5 +167,15 @@
   "group.newMenuGroup": "グループ...",
   "group.newMenuGroupLink": "グループへのショートカット",
   "group.limitReached": "1 グループの上限は {0} 個です ({1} 個は追加されませんでした)。新しいグループを作成することをお勧めします。",
-  "group.linkRefused": "グループには、自分自身へのショートカットや、同じグループへの 2 つのショートカットを置けません。"
+  "group.linkRefused": "グループには、自分自身へのショートカットや、同じグループへの 2 つのショートカットを置けません。",
+  "desktop.allAppFolder": "すべてのグループ: アプリ フォルダー スタイル",
+  "desktop.allPanel": "すべてのグループ: パネル スタイル",
+  "desktop.contextMenuRoot": "Smart Dock Groups",
+  "group.close": "グループを閉じる",
+  "group.newShortcut": "新しいショートカット...",
+  "group.paste": "貼り付け",
+  "group.searchCount": "{0} 件見つかりました",
+  "group.searchPlaceholder": "検索...",
+  "item.copy": "コピー",
+  "item.cut": "切り取り"
 }

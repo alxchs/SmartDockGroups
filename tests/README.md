@@ -9,7 +9,7 @@ publicação.
 dotnet test tests/SmartDockGroups.Tests
 ```
 
-93 testes, ~4 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
+101 testes, ~4 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
 
 - **`MonitorPlacementTests`** — a geometria que resgata um grupo quando o conjunto de
   monitores mudou. O `docs/OVERVIEW.md` registrava que essa matemática tinha sido conferida
@@ -40,6 +40,9 @@ dotnet test tests/SmartDockGroups.Tests
   propósito: a ordem de criação difere da visual), com voltas nas pontas; limite de 30 entradas
   (subpastas contam; grupo antigo acima do limite não aceita mais nada); atalho de grupo (nunca
   para si, nunca dois para o mesmo, nome único).
+- **`LocalizationCompletenessTests`** — cada idioma tem exatamente as chaves do inglês e os mesmos `{0}`/`{1}`;
+  toda chave que o código ou o XAML pede existe. (Sem isso, uma chave faltando só aparece como texto em
+  inglês numa interface em outro idioma.)
 - **`PromptPositioningTests`** — cálculo de centralização de janelas por monitor com DPI heterogêneo,
   garantia de contenção na área de trabalho útil, conversão física para DIPs WPF, e validação interativa
   em ambiente multi-monitor real (`Screen.AllScreens`) com medição de retângulos e capturas.
@@ -106,7 +109,7 @@ os cenários do lote de 2026-09-30, gravando `report-lote.json` e capturas recor
 `--drag` arrasta um ícone de um grupo para outro com o mouse real e mede onde ele caiu (os quadros saem com a tela inteira: nunca versionar); `--batch` roda a ordem do menu, os arrastes até as bordas (inclusive sobre a divisa entre monitores), a
 navegação por teclas, o limite de 30 e o atalho de grupo; `--dock` roda só o acoplamento (inclusive os comandos com o app fechado, relançando o exe
 com `--desktop-action=`); `--menu-edges` mede os menus com o grupo em cada canto de cada monitor.
-`SDG_TEST_APPTHEME=Light` roda o app em tema claro (como num PC com Windows claro) e `SDG_TEST_TEXT=#404040` dá ao grupo de teste uma cor
+`SDG_TEST_LANG=de` roda o app em outro idioma; `SDG_TEST_APPTHEME=Light` roda o app em tema claro (como num PC com Windows claro) e `SDG_TEST_TEXT=#404040` dá ao grupo de teste uma cor
 de texto que destoa — para ver como os menus ficam.
 `--clean-cache` = cenário "Instalação limpa"; `--reuse-data` reaproveita a pasta de uma rodada
 anterior (atalhos já adotados). Os rótulos procurados nos menus são os do idioma da configuração

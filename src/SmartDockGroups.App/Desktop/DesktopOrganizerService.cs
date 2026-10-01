@@ -263,6 +263,26 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
         EnsureGroupsReachable();
     }
 
+    public DesktopGroupDisplayMode DockedStyle(MenuCategory member)
+    {
+        var saved = _configuration?.Dock.Saved.FirstOrDefault(placement => placement.Id == member.Id);
+        return saved?.DisplayMode ?? member.DisplayMode;
+    }
+
+    public void DockToggleStyle(MenuCategory member)
+    {
+        var saved = _configuration?.Dock.Saved.FirstOrDefault(placement => placement.Id == member.Id);
+        if (saved is null)
+        {
+            return;
+        }
+
+        saved.DisplayMode = saved.DisplayMode == DesktopGroupDisplayMode.AppFolder
+            ? DesktopGroupDisplayMode.Panel
+            : DesktopGroupDisplayMode.AppFolder;
+        _save?.Invoke(member);
+    }
+
     /// <summary>Opens <paramref name="member"/> and closes the one that was open — or closes it when it was already open.</summary>
     public void ToggleDockExpanded(MenuCategory member)
     {

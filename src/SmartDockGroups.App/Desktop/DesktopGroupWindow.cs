@@ -1763,13 +1763,26 @@ internal sealed class DesktopGroupWindow : Window
     private MenuItem BuildViewMenu()
     {
         var viewMenu = CreateMenuItem(LocalizationService.Get("group.viewMenu"), "IconGrid");
+        // Docked, the group is always a title bar in the stack, so this flips the style it will have
+        // again on undock (shown here as the style it currently "has"), instead of being greyed out.
+        var docked = _isDockedMember && _commands is not null;
+        var asFolder = docked
+            ? _commands!.DockedStyle(_category) == DesktopGroupDisplayMode.AppFolder
+            : IsAppFolder;
         var styleItem = CreateMenuItem(
-            LocalizationService.Get(IsAppFolder ? "group.stylePanel" : "group.styleAppFolder"),
-            IsAppFolder ? "IconStylePanel" : "IconStyleAppFolder");
-        styleItem.Click += (_, _) => ToggleDisplayMode();
-
-        // A docked group is always a title bar in the stack; its own style comes back on undock.
-        styleItem.IsEnabled = !_isDockedMember;
+            LocalizationService.Get(asFolder ? "group.stylePanel" : "group.styleAppFolder"),
+            asFolder ? "IconStylePanel" : "IconStyleAppFolder");
+        styleItem.Click += (_, _) =>
+        {
+            if (docked)
+            {
+                _commands!.DockToggleStyle(_category);
+            }
+            else
+            {
+                ToggleDisplayMode();
+            }
+        };
         viewMenu.Items.Add(styleItem);
         AddCheckItem(viewMenu, LocalizationService.Get("group.arrangeIcons"), _category.IconArrangement != IconArrangement.None, ToggleArrangeIconsAutomatically, "IconSort");
 

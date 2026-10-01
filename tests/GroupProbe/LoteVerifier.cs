@@ -167,6 +167,9 @@ internal static class LoteVerifier
         var config = JsonNode.Parse(File.ReadAllText(Path.Combine(_data, "config.json")))!.AsObject();
         var groups = config["Categories"]!.AsArray();
 
+        // The user's real configuration may be docked right now; every scenario starts undocked.
+        config["Dock"] = new JsonObject { ["IsDocked"] = false };
+
         var scale = SystemScale();
         var area = System.Windows.Forms.Screen.PrimaryScreen!.WorkingArea;
         var left = (area.Left / scale) + 420;
@@ -198,6 +201,12 @@ internal static class LoteVerifier
             ["DesktopWidth"] = 300, ["DesktopHeight"] = 190, ["IconArrangement"] = "ByName", ["DisplayMode"] = "Panel",
             ["Items"] = crowd, ["Categories"] = new JsonArray()
         });
+
+        // Optional: the app in another language (SDG_TEST_LANG=de) — menu labels are then looked up by the verifier in that language.
+        if (Environment.GetEnvironmentVariable("SDG_TEST_LANG") is { Length: > 0 } language)
+        {
+            config["Behavior"]!["Language"] = language;
+        }
 
         // Optional: the app itself in the light theme (SDG_TEST_APPTHEME=Light), as on a PC with Windows in light mode.
         if (Environment.GetEnvironmentVariable("SDG_TEST_APPTHEME") is { Length: > 0 } appTheme)
@@ -974,13 +983,13 @@ internal static class LoteVerifier
         return o;
     }
 
-    private static void HeaderCommand(string group, string item)
+    private static void HeaderCommand(string group, params string[] path)
     {
         var h = Window(group);
         BringTop(h);
         Thread.Sleep(300);
         Win32.GetWindowRect(h, out var r);
-        InvokeFromMenu(new System.Drawing.Point(r.Left + 60, r.Top + 12), item);
+        InvokeFromMenu(new System.Drawing.Point(r.Left + 60, r.Top + 12), path);
         Thread.Sleep(1200);
         foreach (var name in DockGroups)
         {
@@ -1026,6 +1035,25 @@ internal static class LoteVerifier
         HeaderCommand(FreeGroup, "Dock all groups");
         Thread.Sleep(800);
         result["docked"] = DescribeStack("1-acoplado");
+
+        // The View > Style item must stay usable while docked: it flips the style the group has after undock.
+        string SavedMode(string group)
+        {
+            var id = Groups(ReadConfig()).First(g => g["Name"]!.GetValue<string>() == group)["Id"]!.GetValue<string>();
+            return ReadConfig()["Dock"]!["Saved"]!.AsArray().First(p => p!["Id"]!.GetValue<string>() == id)!["DisplayMode"]!.GetValue<string>();
+        }
+
+        var styleBefore = SavedMode("Dev Apps");
+        HeaderCommand("Dev Apps", "View", styleBefore == "AppFolder" ? "Style: panel" : "Style: app folder");
+        var styleFlipped = SavedMode("Dev Apps");
+        HeaderCommand("Dev Apps", "View", styleFlipped == "AppFolder" ? "Style: panel" : "Style: app folder");
+        result["styleWhileDocked"] = new JsonObject
+        {
+            ["savedBefore"] = styleBefore,
+            ["afterFirstClick"] = styleFlipped,
+            ["afterSecondClick"] = SavedMode("Dev Apps"),
+            ["stillBarInStack"] = Window("Dev Apps") != IntPtr.Zero && Win32.GetWindowRect(Window("Dev Apps"), out var barRect) && barRect.Height < 90
+        };
 
         var stack = StackInOrder();
         var second = stack[1].Name;

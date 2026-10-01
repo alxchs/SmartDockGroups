@@ -167,5 +167,15 @@
   "group.newMenuGroup": "Группа...",
   "group.newMenuGroupLink": "Ярлык группы",
   "group.limitReached": "Лимит — {0} элементов на группу (не добавлено: {1}). Лучше создать новую группу.",
-  "group.linkRefused": "Группа не может содержать ярлык на себя или два ярлыка на одну и ту же группу."
+  "group.linkRefused": "Группа не может содержать ярлык на себя или два ярлыка на одну и ту же группу.",
+  "desktop.allAppFolder": "Все группы: стиль папки приложений",
+  "desktop.allPanel": "Все группы: стиль панели",
+  "desktop.contextMenuRoot": "Smart Dock Groups",
+  "group.close": "Закрыть группу",
+  "group.newShortcut": "Новый ярлык...",
+  "group.paste": "Вставить",
+  "group.searchCount": "Найдено: {0}",
+  "group.searchPlaceholder": "Найти...",
+  "item.copy": "Копировать",
+  "item.cut": "Вырезать"
 }

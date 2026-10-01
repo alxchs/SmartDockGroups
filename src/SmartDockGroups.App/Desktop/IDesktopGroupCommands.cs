@@ -46,6 +46,12 @@ internal interface IDesktopGroupCommands
     /// <summary>Opens this docked group (closing whichever was open), or closes it when it is the open one.</summary>
     void DockToggleExpanded(MenuCategory member);
 
+    /// <summary>The style (panel or app folder) a docked group will have again when the groups are undocked.</summary>
+    DesktopGroupDisplayMode DockedStyle(MenuCategory member);
+
+    /// <summary>Flips that style while docked: the group stays a title bar in the stack, and comes back in the other style on undock.</summary>
+    void DockToggleStyle(MenuCategory member);
+
     /// <summary>The user is dragging a docked group right now: the rest of the stack moves with it, live.</summary>
     void DockFollow(MenuCategory member, double left, double top);
 

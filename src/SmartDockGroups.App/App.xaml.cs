@@ -458,6 +458,10 @@ public partial class App : Application, IDesktopGroupCommands
 
     void IDesktopGroupCommands.DockToggleExpanded(MenuCategory member) => _desktopOrganizer?.ToggleDockExpanded(member);
 
+    DesktopGroupDisplayMode IDesktopGroupCommands.DockedStyle(MenuCategory member) => _desktopOrganizer!.DockedStyle(member);
+
+    void IDesktopGroupCommands.DockToggleStyle(MenuCategory member) => _desktopOrganizer?.DockToggleStyle(member);
+
     void IDesktopGroupCommands.DockFollow(MenuCategory member, double left, double top) => _desktopOrganizer?.DockFollow(member, left, top);
 
     void IDesktopGroupCommands.DockMovedTo(MenuCategory member, double left, double top) => _desktopOrganizer?.DockMovedTo(member, left, top);

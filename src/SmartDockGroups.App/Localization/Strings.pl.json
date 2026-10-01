@@ -167,5 +167,15 @@
   "group.newMenuGroup": "Grupa...",
   "group.newMenuGroupLink": "Skrót do grupy",
   "group.limitReached": "Limit to {0} elementów na grupę (nie dodano: {1}). Lepiej utworzyć nową grupę.",
-  "group.linkRefused": "Grupa nie może zawierać skrótu do samej siebie ani dwóch skrótów do tej samej grupy."
+  "group.linkRefused": "Grupa nie może zawierać skrótu do samej siebie ani dwóch skrótów do tej samej grupy.",
+  "desktop.allAppFolder": "Wszystkie grupy: styl folderu aplikacji",
+  "desktop.allPanel": "Wszystkie grupy: styl panelu",
+  "desktop.contextMenuRoot": "Smart Dock Groups",
+  "group.close": "Zamknij grupę",
+  "group.newShortcut": "Nowy skrót...",
+  "group.paste": "Wklej",
+  "group.searchCount": "Znaleziono: {0}",
+  "group.searchPlaceholder": "Znajdź...",
+  "item.copy": "Kopiuj",
+  "item.cut": "Wytnij"
 }
