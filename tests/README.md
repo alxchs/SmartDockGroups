@@ -9,7 +9,7 @@ publicação.
 dotnet test tests/SmartDockGroups.Tests
 ```
 
-82 testes, ~4 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
+93 testes, ~4 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
 
 - **`MonitorPlacementTests`** — a geometria que resgata um grupo quando o conjunto de
   monitores mudou. O `docs/OVERVIEW.md` registrava que essa matemática tinha sido conferida
@@ -36,6 +36,10 @@ dotnet test tests/SmartDockGroups.Tests
   e a pilha sobe perto do rodapé sem passar do topo da área útil; desacoplar devolve a
   posição, o tamanho, o estado e o estilo; o estado sobrevive a salvar/recarregar; os verbos
   do menu da área de trabalho são únicos e têm rótulo nos 8 idiomas.
+- **`NavigationAndLimitTests`** — navegação por teclado pela posição na tela (layout embaralhado de
+  propósito: a ordem de criação difere da visual), com voltas nas pontas; limite de 30 entradas
+  (subpastas contam; grupo antigo acima do limite não aceita mais nada); atalho de grupo (nunca
+  para si, nunca dois para o mesmo, nome único).
 - **`PromptPositioningTests`** — cálculo de centralização de janelas por monitor com DPI heterogêneo,
   garantia de contenção na área de trabalho útil, conversão física para DIPs WPF, e validação interativa
   em ambiente multi-monitor real (`Screen.AllScreens`) com medição de retângulos e capturas.
@@ -99,7 +103,8 @@ tests/GroupProbe/bin/Release/net10.0-windows/GroupProbe.exe --verify-lote ^
 Copia a configuração real (só leitura) e o cache de ícones para `<pasta>\data`, acrescenta dois
 grupos de teste ("Livre (teste)", em posição livre, e "Rolagem (teste)", baixo e cheio) e percorre
 os cenários do lote de 2026-09-30, gravando `report-lote.json` e capturas recortadas `lote-*.png`.
-`--drag` arrasta um ícone de um grupo para outro com o mouse real e mede onde ele caiu (os quadros saem com a tela inteira: nunca versionar); `--dock` roda só o acoplamento (inclusive os comandos com o app fechado, relançando o exe
+`--drag` arrasta um ícone de um grupo para outro com o mouse real e mede onde ele caiu (os quadros saem com a tela inteira: nunca versionar); `--batch` roda a ordem do menu, os arrastes até as bordas (inclusive sobre a divisa entre monitores), a
+navegação por teclas, o limite de 30 e o atalho de grupo; `--dock` roda só o acoplamento (inclusive os comandos com o app fechado, relançando o exe
 com `--desktop-action=`); `--menu-edges` mede os menus com o grupo em cada canto de cada monitor.
 `--clean-cache` = cenário "Instalação limpa"; `--reuse-data` reaproveita a pasta de uma rodada
 anterior (atalhos já adotados). Os rótulos procurados nos menus são os do idioma da configuração

@@ -93,7 +93,7 @@
   "group.iconSizeSmall": "小",
   "group.iconSizeMedium": "中",
   "group.iconSizeLarge": "大",
-  "group.newMenu": "新規作成",
+  "group.newMenu": "新規",
   "group.newFolder": "新しいフォルダー...",
   "group.newTextFile": "新しいテキスト ドキュメント",
   "group.newTextFileName": "新しいテキスト ドキュメント",
@@ -162,5 +162,10 @@
   "desktop.openAllGroups": "デスクトップのすべてのグループを開く",
   "desktop.closeAllGroups": "デスクトップのすべてのグループを閉じる",
   "desktop.groupsMenu": "デスクトップ グループ",
-  "group.windowOrder": "デスクトップ上の順序"
+  "group.windowOrder": "デスクトップ上の順序",
+  "group.newMenuShortcut": "ショートカット...",
+  "group.newMenuGroup": "グループ...",
+  "group.newMenuGroupLink": "グループへのショートカット",
+  "group.limitReached": "1 グループの上限は {0} 個です ({1} 個は追加されませんでした)。新しいグループを作成することをお勧めします。",
+  "group.linkRefused": "グループには、自分自身へのショートカットや、同じグループへの 2 つのショートカットを置けません。"
 }

@@ -162,5 +162,10 @@
   "desktop.openAllGroups": "Abrir todos los grupos del escritorio",
   "desktop.closeAllGroups": "Cerrar todos los grupos del escritorio",
   "desktop.groupsMenu": "Grupos del escritorio",
-  "group.windowOrder": "Orden en el escritorio"
+  "group.windowOrder": "Orden en el escritorio",
+  "group.newMenuShortcut": "Acceso directo...",
+  "group.newMenuGroup": "Grupo...",
+  "group.newMenuGroupLink": "Acceso directo a un grupo",
+  "group.limitReached": "El límite es de {0} elementos por grupo ({1} sin añadir). Lo ideal es crear un grupo nuevo.",
+  "group.linkRefused": "Un grupo no puede contener un acceso directo a sí mismo ni dos accesos directos al mismo grupo."
 }

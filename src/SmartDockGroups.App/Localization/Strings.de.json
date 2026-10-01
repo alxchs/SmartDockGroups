@@ -162,5 +162,10 @@
   "desktop.openAllGroups": "Alle Desktopgruppen öffnen",
   "desktop.closeAllGroups": "Alle Desktopgruppen schließen",
   "desktop.groupsMenu": "Desktopgruppen",
-  "group.windowOrder": "Reihenfolge auf dem Desktop"
+  "group.windowOrder": "Reihenfolge auf dem Desktop",
+  "group.newMenuShortcut": "Verknüpfung...",
+  "group.newMenuGroup": "Gruppe...",
+  "group.newMenuGroupLink": "Verknüpfung zu einer Gruppe",
+  "group.limitReached": "Das Limit beträgt {0} Elemente pro Gruppe ({1} nicht hinzugefügt). Am besten legen Sie eine neue Gruppe an.",
+  "group.linkRefused": "Eine Gruppe kann weder eine Verknüpfung zu sich selbst noch zwei Verknüpfungen zur selben Gruppe enthalten."
 }

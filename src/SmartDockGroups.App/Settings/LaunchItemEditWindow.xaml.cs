@@ -21,7 +21,8 @@ public partial class LaunchItemEditWindow : ModernWindow
         _item = item;
         _validateName = validateName;
 
-        TypeBox.ItemsSource = Enum.GetValues<LaunchItemType>();
+        // A shortcut to a group is made from the group's menu, not typed in here.
+        TypeBox.ItemsSource = Enum.GetValues<LaunchItemType>().Where(type => type != LaunchItemType.GroupLink).ToList();
         ExecutionModeBox.ItemsSource = Enum.GetValues<ExecutionMode>();
         NameBox.Text = item.Name;
         TypeBox.SelectedItem = item.Type;

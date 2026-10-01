@@ -279,6 +279,23 @@ public partial class App : Application, IDesktopGroupCommands
             {
                 TaskbarShortcutService.SyncName(category, exe);
             }
+
+            // Shortcuts to this group elsewhere carry its name: follow the rename.
+            var linksRenamed = false;
+            foreach (var holder in DesktopOrganizerService.AllDesktopGroups(_configuration!))
+            {
+                foreach (var link in holder.Items.Where(i => i.Type == LaunchItemType.GroupLink && i.Target == id && i.Name != category.Name))
+                {
+                    link.Name = GroupNames.MakeUnique(holder, category.Name, link);
+                    linksRenamed = true;
+                }
+            }
+
+            if (linksRenamed)
+            {
+                _configurationStore!.Save(_configuration!);
+                Dispatcher.BeginInvoke(() => _desktopOrganizer?.ReloadVisuals(_configuration!), System.Windows.Threading.DispatcherPriority.Background);
+            }
         }
     }
 
@@ -421,6 +438,10 @@ public partial class App : Application, IDesktopGroupCommands
         SaveAndReloadGroups();
     }
 
+    IReadOnlyList<MenuCategory> IDesktopGroupCommands.DesktopGroups => DesktopOrganizerService.AllDesktopGroups(_configuration!).ToList();
+
+    void IDesktopGroupCommands.FocusGroup(string groupId) => FocusGroup(groupId);
+
     bool IDesktopGroupCommands.IsDocked => _desktopOrganizer?.IsDocked == true;
 
     void IDesktopGroupCommands.ToggleDock(MenuCategory anchor)
@@ -449,6 +470,11 @@ public partial class App : Application, IDesktopGroupCommands
     private void OnDesktopGroupDeleteRequested(MenuCategory category)
     {
         TaskbarShortcutService.Remove(category);
+        if (category.Id is { } removedId && DesktopOrganizerService.RemoveLinksTo(_configuration!, removedId))
+        {
+            Dispatcher.BeginInvoke(() => _desktopOrganizer?.ReloadVisuals(_configuration!), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
         DesktopOrganizerService.RemoveCategory(_configuration!, category);
         _configurationStore!.Save(_configuration!);
         RefreshDesktopGroups();

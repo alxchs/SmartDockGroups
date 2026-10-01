@@ -54,6 +54,7 @@ internal static class Program
             LoteVerifier.OnlyMenuEdges = args.Contains("--menu-edges");
             LoteVerifier.OnlyDock = args.Contains("--dock");
             LoteVerifier.OnlyDrag = args.Contains("--drag");
+            LoteVerifier.OnlyBatch = args.Contains("--batch");
             return LoteVerifier.Run(Path.GetFullPath(exe), Path.GetFullPath(outDir), args.Contains("--reuse-data"));
         }
 

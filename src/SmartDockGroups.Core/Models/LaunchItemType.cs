@@ -6,5 +6,8 @@ public enum LaunchItemType
     File,
     Folder,
     Url,
-    Command
+    Command,
+
+    /// <summary>A shortcut to another desktop group: <see cref="LaunchItem.Target"/> is that group's <c>Id</c>.</summary>
+    GroupLink
 }

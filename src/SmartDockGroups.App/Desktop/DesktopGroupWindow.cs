@@ -112,6 +112,26 @@ internal sealed class DesktopGroupWindow : Window
 
     private const uint GA_ROOT = 2;
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFOEX info);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct MONITORINFOEX
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string szDevice;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT
     {
@@ -371,6 +391,12 @@ internal sealed class DesktopGroupWindow : Window
         RestoreIfMinimized();
         Activate();
 
+        if (!IsAppFolder)
+        {
+            // Landing on a group by its shortcut puts the keyboard on its first icon.
+            SelectFirstVisual();
+        }
+
         if (Content is UIElement root)
         {
             var pulse = new System.Windows.Media.Animation.DoubleAnimation(1.0, 0.55, TimeSpan.FromMilliseconds(180))
@@ -393,6 +419,71 @@ internal sealed class DesktopGroupWindow : Window
         _category.DesktopY,
         ActualWidth > 0 ? ActualWidth : _category.DesktopWidth,
         ActualHeight > 0 ? ActualHeight : _category.DesktopHeight);
+
+    /// <summary>
+    /// Pulls the whole window back inside one monitor's work area, on all four sides. After a drag
+    /// that monitor is the one under the mouse when the button was released — a group dropped
+    /// across two monitors goes to the one the user was pointing at; otherwise it is the monitor
+    /// holding most of the window. A group larger than the monitor keeps its top-left corner in view.
+    /// </summary>
+    private void KeepOnScreen(bool byCursor)
+    {
+        var areas = DisplayInventory.WorkAreas(this);
+        if (areas.Count == 0)
+        {
+            return;
+        }
+
+        var size = _category.IsCollapsed || IsAppFolder || _isDockedMember
+            ? new System.Windows.Size(ActualWidth > 0 ? ActualWidth : _category.DesktopWidth, ActualHeight > 0 ? ActualHeight : _category.DesktopHeight)
+            : new System.Windows.Size(_category.DesktopWidth, _category.DesktopHeight);
+
+        int index;
+        if (byCursor && MonitorUnderCursor() is { } deviceName)
+        {
+            index = Array.FindIndex(System.Windows.Forms.Screen.AllScreens, candidate => candidate.DeviceName == deviceName);
+        }
+        else
+        {
+            index = MonitorPlacement.IndexOfOwner(new Rect(Left, Top, size.Width, size.Height), areas);
+        }
+
+        var area = areas[Math.Clamp(index, 0, areas.Count - 1)];
+        var corrected = MonitorPlacement.ClampInto(new System.Windows.Point(Left, Top), size, area);
+        if (Math.Abs(corrected.X - Left) > 0.5 || Math.Abs(corrected.Y - Top) > 0.5)
+        {
+            PlaceWithoutSaving(corrected.X, corrected.Y);
+        }
+    }
+
+    /// <summary>
+    /// The device name of the monitor the mouse is on. Asked in the per-monitor DPI context on
+    /// purpose: this process is system-DPI aware, and with monitors of different scales its own
+    /// view of the cursor and of the monitors disagree (measured 2026-09-30: the cursor at
+    /// x=3915 on the second monitor was resolved to the first one). Physical pixels do not.
+    /// </summary>
+    private static string? MonitorUnderCursor()
+    {
+        var previous = SetThreadDpiAwarenessContext(new IntPtr(-4)); // PER_MONITOR_AWARE_V2
+        try
+        {
+            if (!GetCursorPos(out var cursor))
+            {
+                return null;
+            }
+
+            var monitor = MonitorFromPoint(cursor, 2 /* MONITOR_DEFAULTTONEAREST */);
+            var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>() };
+            return monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref info) ? info.szDevice : null;
+        }
+        finally
+        {
+            if (previous != IntPtr.Zero)
+            {
+                SetThreadDpiAwarenessContext(previous);
+            }
+        }
+    }
 
     /// <summary>Moves the window without recording the move as the group's new home.</summary>
     internal void PlaceWithoutSaving(double left, double top)
@@ -740,6 +831,7 @@ internal sealed class DesktopGroupWindow : Window
             return;
         }
 
+        KeepOnScreen(byCursor: true);
         _category.DesktopX = Left;
         _category.DesktopY = Top;
         _monitorPositions.Clear();
@@ -771,7 +863,8 @@ internal sealed class DesktopGroupWindow : Window
             FontFamily = new FontFamily(_theme.TitleFontFamily),
             FontSize = _theme.TitleFontSize,
             FontWeight = _theme.TitleBold ? FontWeights.Bold : FontWeights.Normal,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
         };
 
         _closeButton = BuildHeaderButton(CloseGroup);
@@ -1208,14 +1301,11 @@ internal sealed class DesktopGroupWindow : Window
         {
             var isMatch = _searchMatches.Contains(entry);
             tile.Opacity = isMatch ? 1.0 : 0.22;
-            if (tile is Panel panel)
-            {
-                panel.Background = ReferenceEquals(entry, current)
-                    ? ThemeBrushes.CreateBrush(_theme.HighlightColor, 1.0)
-                    : isMatch
-                        ? ThemeBrushes.CreateBrush(_theme.HighlightColor, 0.5)
-                        : Brushes.Transparent;
-            }
+            SetTileBackground(tile, ReferenceEquals(entry, current)
+                ? ThemeBrushes.CreateBrush(_theme.HighlightColor, 1.0)
+                : isMatch
+                    ? ThemeBrushes.CreateBrush(_theme.HighlightColor, 0.5)
+                    : Brushes.Transparent);
         }
 
         if (current is not null)
@@ -1592,7 +1682,47 @@ internal sealed class DesktopGroupWindow : Window
     /// </summary>
     private void PopulateGroupMenu(ItemsControl menu)
     {
-        // ── The group itself
+        // ── What goes in it
+        var newMenu = CreateMenuItem(LocalizationService.Get("group.newMenu"), "IconAdd");
+        AddMenuItem(newMenu, LocalizationService.Get("group.newMenuShortcut"), CreateShortcut, "IconAdd");
+        if (_commands is not null)
+        {
+            AddMenuItem(newMenu, LocalizationService.Get("group.newMenuGroup"), _commands.CreateGroup, "IconAdd");
+            newMenu.Items.Add(BuildGroupLinkMenu());
+        }
+
+        menu.Items.Add(newMenu);
+        AddMenuItem(menu, LocalizationService.Get("group.importShortcuts"), ImportShortcuts, "IconFolderOpen");
+
+        var canPaste = System.Windows.Clipboard.ContainsFileDropList() || _pendingCuts.Count > 0;
+        var pasteItem = CreateMenuItem(LocalizationService.Get("group.paste") + "\tCtrl+V", "IconPaste");
+        pasteItem.IsEnabled = canPaste;
+        pasteItem.Click += (_, _) => PasteFromClipboard();
+        menu.Items.Add(pasteItem);
+
+        // ── How it looks
+        menu.Items.Add(BuildSeparator());
+        menu.Items.Add(BuildViewMenu());
+        menu.Items.Add(BuildAppearanceMenu());
+
+        // ── Where it sits among the others
+        var orderMenu = CreateMenuItem(LocalizationService.Get("group.windowOrder"), "IconMove");
+        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToFront"), BringAllGroupsToFront);
+        AddMenuItem(orderMenu, LocalizationService.Get("group.sendOthersToBack"), SendOthersToBack);
+        AddMenuItem(orderMenu, LocalizationService.Get("group.sendAllToBack"), SendAllToBack);
+        orderMenu.Items.Add(BuildSeparator());
+        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToThisMonitorCentered"), BringAllGroupsToThisMonitorCentered, "IconGather");
+        PopulateSendAllToMonitors(orderMenu);
+        menu.Items.Add(orderMenu);
+
+        if (_commands is not null)
+        {
+            AddMenuItem(menu, LocalizationService.Get("group.taskbarShortcut"), () => _commands.CreateTaskbarShortcut(_category), "IconStylePanel");
+        }
+
+        // ── This group: one section for everything that acts on the group itself
+        menu.Items.Add(BuildSeparator());
+        AddMenuItem(menu, LocalizationService.Get("group.rename"), OnRenameClick, "IconRename");
         if (IsAppFolder)
         {
             AddMenuItem(menu, LocalizationService.Get("group.openFolder"), OpenOverlay, "IconOpenExternal");
@@ -1606,22 +1736,29 @@ internal sealed class DesktopGroupWindow : Window
                 _category.IsCollapsed ? "IconChevronDown" : "IconChevronUp");
         }
 
-        AddMenuItem(menu, LocalizationService.Get("group.rename"), OnRenameClick, "IconRename");
+        if (_commands is not null)
+        {
+            AddMenuItem(
+                menu,
+                LocalizationService.Get(_commands.IsDocked ? "group.undockAll" : "group.dockAll"),
+                () => _commands.ToggleDock(_category),
+                "IconStylePanel");
+            AddMenuItem(menu, LocalizationService.Get("group.duplicate"), () => _commands.Duplicate(_category), "IconDuplicate");
+        }
 
-        // ── What goes in it
-        menu.Items.Add(BuildSeparator());
-        AddMenuItem(menu, LocalizationService.Get("group.newShortcut"), CreateShortcut, "IconAdd");
-        AddMenuItem(menu, LocalizationService.Get("group.importShortcuts"), ImportShortcuts, "IconFolderOpen");
+        AddMenuItem(menu, LocalizationService.Get("group.close"), CloseGroup, "IconClose");
+        AddMenuItem(menu, LocalizationService.Get("group.remove"), OnDeleteGroupClick, "IconDelete");
 
-        var canPaste = System.Windows.Clipboard.ContainsFileDropList() || _pendingCuts.Count > 0;
-        var pasteItem = CreateMenuItem(LocalizationService.Get("group.paste") + "\tCtrl+V", "IconPaste");
-        pasteItem.IsEnabled = canPaste;
-        pasteItem.Click += (_, _) => PasteFromClipboard();
-        menu.Items.Add(pasteItem);
+        // ── The app: always last
+        if (_commands is not null)
+        {
+            menu.Items.Add(BuildSeparator());
+            AddMenuItem(menu, LocalizationService.Get("tray.settings"), _commands.OpenSettings, "IconSettings");
+        }
+    }
 
-        // ── How it looks
-        menu.Items.Add(BuildSeparator());
-
+    private MenuItem BuildViewMenu()
+    {
         var viewMenu = CreateMenuItem(LocalizationService.Get("group.viewMenu"), "IconGrid");
         var styleItem = CreateMenuItem(
             LocalizationService.Get(IsAppFolder ? "group.stylePanel" : "group.styleAppFolder"),
@@ -1643,8 +1780,11 @@ internal sealed class DesktopGroupWindow : Window
         AddSpacingSlider(spacingMenu, LocalizationService.Get("group.iconHGap"), _category.IconHGap, SetIconHGap);
         AddSpacingSlider(spacingMenu, LocalizationService.Get("group.iconVGap"), _category.IconVGap, SetIconVGap);
         viewMenu.Items.Add(spacingMenu);
-        menu.Items.Add(viewMenu);
+        return viewMenu;
+    }
 
+    private MenuItem BuildAppearanceMenu()
+    {
         var lookMenu = CreateMenuItem(LocalizationService.Get("group.shareVisual"), "IconColor");
         AddMenuItem(lookMenu, LocalizationService.Get("group.backgroundColor"), OnChangeColorClick, "IconColor");
         AddMenuItem(lookMenu, LocalizationService.Get("group.backgroundImage"), OnChangeBackgroundImageClick, "IconImage");
@@ -1669,37 +1809,7 @@ internal sealed class DesktopGroupWindow : Window
             lookMenu.Items.Add(BuildShareMenu());
         }
 
-        menu.Items.Add(lookMenu);
-
-        // ── Where it sits among the others
-        var orderMenu = CreateMenuItem(LocalizationService.Get("group.windowOrder"), "IconMove");
-        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToFront"), BringAllGroupsToFront);
-        AddMenuItem(orderMenu, LocalizationService.Get("group.sendOthersToBack"), SendOthersToBack);
-        AddMenuItem(orderMenu, LocalizationService.Get("group.sendAllToBack"), SendAllToBack);
-        orderMenu.Items.Add(BuildSeparator());
-        AddMenuItem(orderMenu, LocalizationService.Get("group.bringAllToThisMonitorCentered"), BringAllGroupsToThisMonitorCentered, "IconGather");
-        PopulateSendAllToMonitors(orderMenu);
-        menu.Items.Add(orderMenu);
-
-        // ── Groups and the app
-        if (_commands is not null)
-        {
-            menu.Items.Add(BuildSeparator());
-            AddMenuItem(menu, LocalizationService.Get("group.newGroup"), _commands.CreateGroup, "IconAdd");
-            AddMenuItem(
-                menu,
-                LocalizationService.Get(_commands.IsDocked ? "group.undockAll" : "group.dockAll"),
-                () => _commands.ToggleDock(_category),
-                "IconStylePanel");
-            AddMenuItem(menu, LocalizationService.Get("group.duplicate"), () => _commands.Duplicate(_category), "IconDuplicate");
-            AddMenuItem(menu, LocalizationService.Get("group.taskbarShortcut"), () => _commands.CreateTaskbarShortcut(_category), "IconStylePanel");
-            AddMenuItem(menu, LocalizationService.Get("tray.settings"), _commands.OpenSettings, "IconSettings");
-        }
-
-        // ── Closing and removing
-        menu.Items.Add(BuildSeparator());
-        AddMenuItem(menu, LocalizationService.Get("group.close"), CloseGroup, "IconClose");
-        AddMenuItem(menu, LocalizationService.Get("group.remove"), OnDeleteGroupClick, "IconDelete");
+        return lookMenu;
     }
 
     /// <summary>
@@ -1958,8 +2068,77 @@ internal sealed class DesktopGroupWindow : Window
         parent.Items.Add(item);
     }
 
+    private void WarnLimit(int notAdded)
+    {
+        MessageBox.Show(
+            this,
+            LocalizationService.Format("group.limitReached", GroupLimits.MaxEntries, notAdded),
+            LocalizationService.Get("common.appName"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
+    private void WarnLinkRefused()
+    {
+        MessageBox.Show(
+            this,
+            LocalizationService.Get("group.linkRefused"),
+            LocalizationService.Get("common.appName"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
+    /// <summary>Adds a shortcut to another group in this one.</summary>
+    private void AddGroupLink(MenuCategory target)
+    {
+        if (GroupLimits.Room(_category) == 0)
+        {
+            WarnLimit(1);
+            return;
+        }
+
+        if (target.Id is null || !GroupLimits.CanHoldLinkTo(_category, target.Id))
+        {
+            WarnLinkRefused();
+            return;
+        }
+
+        var link = GroupLimits.CreateGroupLink(_category, target);
+        PlaceInFreeCells([link]);
+        _category.Items.Add(link);
+        FinishStructuralChange();
+        SelectEntries([link]);
+    }
+
+    /// <summary>"Shortcut to a group ▸": every other group, the ones already linked here greyed out.</summary>
+    private MenuItem BuildGroupLinkMenu()
+    {
+        var menu = CreateMenuItem(LocalizationService.Get("group.newMenuGroupLink"), "IconStylePanel");
+        var candidates = (_commands?.DesktopGroups ?? [])
+            .Where(group => !ReferenceEquals(group, _category) && group.Id is not null)
+            .ToList();
+
+        foreach (var group in candidates)
+        {
+            var item = CreateMenuItem(group.Name, "IconStylePanel");
+            item.IsEnabled = GroupLimits.CanHoldLinkTo(_category, group.Id!);
+            var captured = group;
+            item.Click += (_, _) => AddGroupLink(captured);
+            menu.Items.Add(item);
+        }
+
+        menu.IsEnabled = candidates.Count > 0;
+        return menu;
+    }
+
     private void CreateShortcut()
     {
+        if (GroupLimits.Room(_category) == 0)
+        {
+            WarnLimit(1);
+            return;
+        }
+
         var newItem = new LaunchItem
         {
             Name = string.Empty,
@@ -1987,6 +2166,12 @@ internal sealed class DesktopGroupWindow : Window
 
     private void CreateSubfolder()
     {
+        if (GroupLimits.Room(_category) == 0)
+        {
+            WarnLimit(1);
+            return;
+        }
+
         var prompt = new Settings.TextPromptWindow(
             LocalizationService.Get("group.folderNamePrompt"),
             string.Empty,
@@ -2002,6 +2187,12 @@ internal sealed class DesktopGroupWindow : Window
 
     private void CreateTextFile()
     {
+        if (GroupLimits.Room(_category) == 0)
+        {
+            WarnLimit(1);
+            return;
+        }
+
         var directory = GetGroupFilesDirectory();
         Directory.CreateDirectory(directory);
         var fileName = GetAvailableFileName(directory, LocalizationService.Get("group.newTextFileName"), ".txt");
@@ -2181,8 +2372,8 @@ internal sealed class DesktopGroupWindow : Window
         }
 
         _category.Name = prompt.Value;
-        _headerText.Text = prompt.Value;
         Title = prompt.Value;
+        UpdateHeaderTitle();
         RefreshFolderTile();
         _onLayoutChanged(_category);
     }
@@ -2244,6 +2435,15 @@ internal sealed class DesktopGroupWindow : Window
 
         SetCollapsed(!_category.IsCollapsed);
         _header.ContextMenu = BuildHeaderContextMenu();
+
+        // Expanding near the bottom or right edge must not push the group off the screen.
+        if (!_category.IsCollapsed)
+        {
+            KeepOnScreen(byCursor: false);
+            _category.DesktopX = Left;
+            _category.DesktopY = Top;
+        }
+
         _onLayoutChanged(_category);
     }
 
@@ -2360,6 +2560,7 @@ internal sealed class DesktopGroupWindow : Window
     {
         var added = new List<LaunchItem>();
         var offset = 0.0;
+        var overLimit = 0;
 
         foreach (var path in paths.Where(p => !string.IsNullOrWhiteSpace(p)))
         {
@@ -2374,6 +2575,12 @@ internal sealed class DesktopGroupWindow : Window
             // Already here under this name, pointing at this shortcut: nothing to add.
             if (GroupNames.FindSameShortcut(_category, item) is not null)
             {
+                continue;
+            }
+
+            if (GroupLimits.Room(_category) == 0)
+            {
+                overLimit++;
                 continue;
             }
 
@@ -2393,6 +2600,11 @@ internal sealed class DesktopGroupWindow : Window
         if (dropPoint is null)
         {
             PlaceInFreeCells(added);
+        }
+
+        if (overLimit > 0)
+        {
+            WarnLimit(overLimit);
         }
 
         if (added.Count > 0)
@@ -2543,6 +2755,7 @@ internal sealed class DesktopGroupWindow : Window
         RefreshFolderTile();
         RefreshCutVisuals();
         UpdateCanvasExtent();
+        UpdateHeaderTitle();
         ReapplySearchEmphasis();
     }
 
@@ -3293,6 +3506,25 @@ internal sealed class DesktopGroupWindow : Window
             return;
         }
 
+        // What the other group will not take stays where it is: nothing is lost in a refused move.
+        var (accepted, overLimit, refusedLinks) = GroupLimits.Admit(target._category, entries);
+        if (overLimit > 0)
+        {
+            target.WarnLimit(overLimit);
+        }
+
+        if (refusedLinks > 0)
+        {
+            target.WarnLinkRefused();
+        }
+
+        if (accepted.Count == 0)
+        {
+            return;
+        }
+
+        entries = accepted;
+
         foreach (var entry in entries)
         {
             switch (entry)
@@ -3427,9 +3659,9 @@ internal sealed class DesktopGroupWindow : Window
         tile.MouseEnter += (_, _) =>
         {
             AnimateScale(scale, 1.08);
-            if (tile is Panel panel && !_selectedEntries.Contains(entry))
+            if (!_selectedEntries.Contains(entry))
             {
-                panel.Background = ThemeBrushes.CreateBrush(_theme.HighlightColor, 0.45);
+                SetTileBackground(tile, ThemeBrushes.CreateBrush(_theme.HighlightColor, 0.45));
             }
         };
 
@@ -3440,9 +3672,9 @@ internal sealed class DesktopGroupWindow : Window
             {
                 ReapplySearchEmphasis();
             }
-            else if (tile is Panel panel && !_selectedEntries.Contains(entry))
+            else if (!_selectedEntries.Contains(entry))
             {
-                panel.Background = Brushes.Transparent;
+                SetTileBackground(tile, Brushes.Transparent);
             }
         };
     }
@@ -3523,9 +3755,57 @@ internal sealed class DesktopGroupWindow : Window
         RefreshSelectionVisuals();
     }
 
+    /// <summary>The icons in the order the eye reads them: row by row, left to right, by where they are drawn.</summary>
+    private List<object> VisualOrder()
+    {
+        var entries = _tilesByEntry.Keys.ToList();
+        var positions = entries.Select(PositionOf).ToList();
+        return TileNavigation.ReadingOrder(positions, TileSize * 0.5).Select(i => entries[i]).ToList();
+    }
+
+    private (double X, double Y) PositionOf(object entry)
+    {
+        var tile = _tilesByEntry[entry];
+        var x = Canvas.GetLeft(tile);
+        var y = Canvas.GetTop(tile);
+        return (double.IsNaN(x) ? 0 : x, double.IsNaN(y) ? 0 : y);
+    }
+
+    /// <summary>The entry a navigation key reaches from the current one, by screen position, wrapping at both ends.</summary>
+    private object? NavigateFrom(object? current, NavigationKey key)
+    {
+        var entries = _tilesByEntry.Keys.ToList();
+        if (entries.Count == 0)
+        {
+            return null;
+        }
+
+        var scale = _category.DesktopIconScale > 0 ? _category.DesktopIconScale : 1.0;
+        var viewport = _scroller.ViewportHeight > 0 ? _scroller.ViewportHeight : _scroller.ActualHeight;
+        var pageRows = Math.Max(1, (int)(viewport / (VStride * scale)));
+        var index = TileNavigation.Move(
+            entries.Select(PositionOf).ToList(),
+            current is null ? -1 : entries.IndexOf(current),
+            key,
+            pageRows,
+            TileSize * 0.5);
+        return index < 0 ? null : entries[index];
+    }
+
+    private object? _navigationCursor;
+
+    private void SelectFirstVisual()
+    {
+        if (VisualOrder().FirstOrDefault() is { } first)
+        {
+            _navigationCursor = first;
+            SelectEntry(first, additive: false);
+        }
+    }
+
     private void SelectRange(object fromEntry, object toEntry)
     {
-        var all = GroupEntries.Enumerate(_category).ToList();
+        var all = VisualOrder();
         var i1 = all.IndexOf(fromEntry);
         var i2 = all.IndexOf(toEntry);
         if (i1 < 0) i1 = 0;
@@ -3579,13 +3859,31 @@ internal sealed class DesktopGroupWindow : Window
     {
         foreach (var (entry, tile) in _tilesByEntry)
         {
-            if (tile is Panel panel)
-            {
-                panel.Background = _selectedEntries.Contains(entry)
-                    ? ThemeBrushes.CreateBrush(_theme.HighlightColor, 1.0)
-                    : Brushes.Transparent;
-            }
+            SetTileBackground(tile, _selectedEntries.Contains(entry)
+                ? ThemeBrushes.CreateBrush(_theme.HighlightColor, 1.0)
+                : Brushes.Transparent);
         }
+
+        UpdateHeaderTitle();
+    }
+
+    /// <summary>
+    /// "Group [Icon]" while one icon is selected, "Group [3]" for several, plain "Group" for none.
+    /// The window's own Title stays the bare group name.
+    /// </summary>
+    private void UpdateHeaderTitle()
+    {
+        if (_headerText is null)
+        {
+            return;
+        }
+
+        _headerText.Text = _selectedEntries.Count switch
+        {
+            0 => _category.Name,
+            1 => $"{_category.Name} [{GroupEntries.NameOf(_selectedEntries.First())}]",
+            var n => $"{_category.Name} [{n}]"
+        };
     }
 
     private void RemoveSelectedEntries()
@@ -3608,6 +3906,28 @@ internal sealed class DesktopGroupWindow : Window
         _ => string.Empty
     };
 
+    /// <summary>
+    /// The icon's hit area and its highlight: a rounded plate, so the selection, hover and search
+    /// emphasis read as a soft tile rather than a hard rectangle.
+    /// </summary>
+    private static Border WrapTile(StackPanel content, ContextMenu menu) => new()
+    {
+        Width = TileSize - 8,
+        CornerRadius = new CornerRadius(10),
+        Background = Brushes.Transparent,
+        Cursor = Cursors.Hand,
+        Child = content,
+        ContextMenu = menu
+    };
+
+    private static void SetTileBackground(FrameworkElement tile, Brush brush)
+    {
+        if (tile is Border border)
+        {
+            border.Background = brush;
+        }
+    }
+
     private void AddTile(LaunchItem item, double x, double y)
     {
         var tile = BuildTile(item);
@@ -3618,16 +3938,23 @@ internal sealed class DesktopGroupWindow : Window
 
     private FrameworkElement BuildTile(LaunchItem item)
     {
-        var stack = new StackPanel
+        var stack = new StackPanel { Orientation = Orientation.Vertical };
+        var tile = WrapTile(stack, BuildItemTileContextMenu(item));
+
+        // Rebuilt per click: the menu acts on the selection as it is now, and a right-click on an
+        // icon outside the selection selects it first, as Explorer does.
+        tile.PreviewMouseRightButtonDown += (_, _) =>
         {
-            Orientation = Orientation.Vertical,
-            Width = TileSize - 8,
-            Background = Brushes.Transparent,
-            Cursor = Cursors.Hand,
-            ContextMenu = BuildItemTileContextMenu(item)
+            if (!_selectedEntries.Contains(item))
+            {
+                SelectEntry(item, additive: false);
+            }
+
+            tile.ContextMenu = BuildItemTileContextMenu(item);
         };
 
-        var icon = _iconCache.GetIcon(item.IconOverridePath ?? item.Target);
+        var isGroupLink = item.Type == LaunchItemType.GroupLink;
+        var icon = isGroupLink ? null : _iconCache.GetIcon(item.IconOverridePath ?? item.Target);
         if (icon is not null)
         {
             stack.Children.Add(new Image
@@ -3636,6 +3963,15 @@ internal sealed class DesktopGroupWindow : Window
                 Width = _theme.IconSize * 1.6,
                 Height = _theme.IconSize * 1.6,
                 HorizontalAlignment = HorizontalAlignment.Center
+            });
+        }
+        else if (isGroupLink)
+        {
+            stack.Children.Add(new Border
+            {
+                Height = _theme.IconSize * 1.6,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Child = AppIcons.Create("IconStylePanel", TileTextBrush(), _theme.IconSize * 1.4)
             });
         }
         else
@@ -3656,7 +3992,7 @@ internal sealed class DesktopGroupWindow : Window
 
         if (IsTargetMissing(item))
         {
-            stack.ToolTip = LocalizationService.Format("item.targetMissing", item.Target);
+            tile.ToolTip = LocalizationService.Format("item.targetMissing", item.Target);
         }
 
         var caption = new TextBlock
@@ -3674,7 +4010,7 @@ internal sealed class DesktopGroupWindow : Window
         _captionsByEntry[item] = caption;
 
         AttachTileBehavior(
-            stack,
+            tile,
             item,
             () => _onExecute(item),
             (x, y) =>
@@ -3692,7 +4028,7 @@ internal sealed class DesktopGroupWindow : Window
                 }
             });
 
-        return stack;
+        return tile;
     }
 
     /// <summary>True when the item names a file or folder on disk that is no longer there.</summary>
@@ -3739,18 +4075,20 @@ internal sealed class DesktopGroupWindow : Window
 
     private FrameworkElement BuildFolderTile(MenuCategory folder)
     {
-        var stack = new StackPanel
-        {
-            Orientation = Orientation.Vertical,
-            Width = TileSize - 8,
-            Background = Brushes.Transparent,
-            Cursor = Cursors.Hand,
-            ContextMenu = BuildFolderTileContextMenu(folder)
-        };
+        var stack = new StackPanel { Orientation = Orientation.Vertical };
+        var tile = WrapTile(stack, BuildFolderTileContextMenu(folder));
         // The "Remove" item's enabled state depends on the selection at the moment of
         // the click, not whenever the tile last happened to be rebuilt — rebuild the
         // menu fresh right before it opens rather than let that state go stale.
-        stack.PreviewMouseRightButtonDown += (_, _) => stack.ContextMenu = BuildFolderTileContextMenu(folder);
+        tile.PreviewMouseRightButtonDown += (_, _) =>
+        {
+            if (!_selectedEntries.Contains(folder))
+            {
+                SelectEntry(folder, additive: false);
+            }
+
+            tile.ContextMenu = BuildFolderTileContextMenu(folder);
+        };
 
         stack.Children.Add(new TextBlock
         {
@@ -3776,7 +4114,7 @@ internal sealed class DesktopGroupWindow : Window
         _captionsByEntry[folder] = caption;
 
         AttachTileBehavior(
-            stack,
+            tile,
             folder,
             () => OpenSubfolder(folder),
             (x, y) =>
@@ -3794,7 +4132,7 @@ internal sealed class DesktopGroupWindow : Window
                 }
             });
 
-        return stack;
+        return tile;
     }
 
     private void OnHeaderMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -3815,6 +4153,7 @@ internal sealed class DesktopGroupWindow : Window
             _header.Cursor = Cursors.Arrow;
         }
 
+        KeepOnScreen(byCursor: true);
         if (_isDockedMember && _commands is not null)
         {
             _commands.DockMovedTo(_category, Left, Top);
@@ -3948,6 +4287,7 @@ internal sealed class DesktopGroupWindow : Window
 
         _resizeEdge = ResizeEdge.None;
         ((UIElement)sender).ReleaseMouseCapture();
+        KeepOnScreen(byCursor: false);
         _category.DesktopWidth = Width;
         _category.DesktopHeight = Height;
         _category.DesktopX = Left;
@@ -4143,62 +4483,41 @@ internal sealed class DesktopGroupWindow : Window
             }
         }
 
-        if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End
+        if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown
             && (Keyboard.Modifiers == ModifierKeys.None || Keyboard.Modifiers == ModifierKeys.Shift))
         {
-            var all = GroupEntries.Enumerate(_category).ToList();
-            if (all.Count > 0)
+            var key = e.Key switch
             {
-                var usableWidth = _category.DesktopWidth - (PaddingX * 2);
-                var cols = Math.Max(1, (int)(usableWidth / (HStride * _category.DesktopIconScale)));
+                Key.Left => NavigationKey.Left,
+                Key.Right => NavigationKey.Right,
+                Key.Up => NavigationKey.Up,
+                Key.Down => NavigationKey.Down,
+                Key.Home => NavigationKey.Home,
+                Key.End => NavigationKey.End,
+                Key.PageUp => NavigationKey.PageUp,
+                _ => NavigationKey.PageDown
+            };
 
-                var currentIdx = _selectionAnchor is not null ? all.IndexOf(_selectionAnchor) : -1;
-                if (currentIdx < 0 && _selectedEntries.Count > 0)
-                {
-                    currentIdx = all.IndexOf(_selectedEntries.First());
-                }
+            var current = _navigationCursor is not null && _tilesByEntry.ContainsKey(_navigationCursor) && _selectedEntries.Contains(_navigationCursor)
+                ? _navigationCursor
+                : _selectedEntries.FirstOrDefault(_tilesByEntry.ContainsKey);
 
-                int targetIdx;
-                switch (e.Key)
-                {
-                    case Key.Left:
-                        targetIdx = currentIdx <= 0 ? 0 : currentIdx - 1;
-                        break;
-                    case Key.Right:
-                        targetIdx = currentIdx < 0 ? 0 : Math.Min(all.Count - 1, currentIdx + 1);
-                        break;
-                    case Key.Up:
-                        targetIdx = currentIdx < 0 ? 0 : Math.Max(0, currentIdx - cols);
-                        break;
-                    case Key.Down:
-                        targetIdx = currentIdx < 0 ? 0 : Math.Min(all.Count - 1, currentIdx + cols);
-                        break;
-                    case Key.Home:
-                        targetIdx = 0;
-                        break;
-                    case Key.End:
-                        targetIdx = all.Count - 1;
-                        break;
-                    default:
-                        targetIdx = 0;
-                        break;
-                }
-
-                var targetEntry = all[targetIdx];
+            if (NavigateFrom(current, key) is { } target)
+            {
+                _navigationCursor = target;
                 if (Keyboard.Modifiers == ModifierKeys.Shift)
                 {
-                    SelectRange(_selectionAnchor ?? all[0], targetEntry);
+                    SelectRange(_selectionAnchor ?? current ?? target, target);
                 }
                 else
                 {
                     _selectedEntries.Clear();
-                    _selectedEntries.Add(targetEntry);
-                    _selectionAnchor = targetEntry;
+                    _selectedEntries.Add(target);
+                    _selectionAnchor = target;
                     RefreshSelectionVisuals();
                 }
 
-                ScrollEntryIntoView(targetEntry);
-
+                ScrollEntryIntoView(target);
                 e.Handled = true;
                 return;
             }

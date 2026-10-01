@@ -162,5 +162,10 @@
   "desktop.openAllGroups": "Otwórz wszystkie grupy pulpitu",
   "desktop.closeAllGroups": "Zamknij wszystkie grupy pulpitu",
   "desktop.groupsMenu": "Grupy pulpitu",
-  "group.windowOrder": "Kolejność na pulpicie"
+  "group.windowOrder": "Kolejność na pulpicie",
+  "group.newMenuShortcut": "Skrót...",
+  "group.newMenuGroup": "Grupa...",
+  "group.newMenuGroupLink": "Skrót do grupy",
+  "group.limitReached": "Limit to {0} elementów na grupę (nie dodano: {1}). Lepiej utworzyć nową grupę.",
+  "group.linkRefused": "Grupa nie może zawierać skrótu do samej siebie ani dwóch skrótów do tej samej grupy."
 }

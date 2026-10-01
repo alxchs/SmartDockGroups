@@ -162,5 +162,10 @@
   "desktop.openAllGroups": "Открыть все группы рабочего стола",
   "desktop.closeAllGroups": "Закрыть все группы рабочего стола",
   "desktop.groupsMenu": "Группы рабочего стола",
-  "group.windowOrder": "Порядок на рабочем столе"
+  "group.windowOrder": "Порядок на рабочем столе",
+  "group.newMenuShortcut": "Ярлык...",
+  "group.newMenuGroup": "Группа...",
+  "group.newMenuGroupLink": "Ярлык группы",
+  "group.limitReached": "Лимит — {0} элементов на группу (не добавлено: {1}). Лучше создать новую группу.",
+  "group.linkRefused": "Группа не может содержать ярлык на себя или два ярлыка на одну и ту же группу."
 }

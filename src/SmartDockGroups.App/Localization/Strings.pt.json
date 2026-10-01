@@ -172,5 +172,10 @@
   "settings.importNewGroup": "(Novo grupo...)",
   "settings.importDone": "{0} atalho(s) adicionado(s) ao grupo \"{1}\".",
   "group.dockAll": "Acoplar todos os grupos",
-  "group.undockAll": "Desacoplar grupos"
+  "group.undockAll": "Desacoplar grupos",
+  "group.newMenuShortcut": "Atalho...",
+  "group.newMenuGroup": "Grupo...",
+  "group.newMenuGroupLink": "Atalho para um grupo",
+  "group.limitReached": "O limite é de {0} itens por grupo ({1} não adicionado(s)). O ideal é criar um novo grupo.",
+  "group.linkRefused": "Um grupo não pode ter um atalho para si mesmo nem dois atalhos para o mesmo grupo."
 }
