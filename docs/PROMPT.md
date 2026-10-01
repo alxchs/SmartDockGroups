@@ -790,3 +790,10 @@ dos arquivos reais (`tools/atualizar_apendices_prompt.py`) e uma seção de como
 do prompt contra o código: todo ícone e toda chave de texto usados estão nos apêndices — e isso revelou
 que seis idiomas estavam sem 10 chaves (corrigido, com teste) e que existem chaves e uma janela de tema
 sem uso (documentado como código morto).
+
+## 34. Barra de rolagem desenhada errada (1.1.5.2)
+
+A barra de rolagem aparece parcialmente no lugar errado: o fim dela fica no centro do grupo em vez de junto do
+resto (captura enviada). Reproduza antes de corrigir (ícone propositalmente longe, para exigir barra horizontal),
+ache a causa (modelo só vertical: polegar de largura fixa e comandos de página verticais), conserte o modelo e a
+conta que fazia a barra horizontal aparecer onde não era necessária.

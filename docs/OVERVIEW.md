@@ -330,6 +330,15 @@ funciona de fora desta rede, sem custo.
     até o ícone (`ScrollEntryIntoView`). O quadrado onde as duas barras se
     encontram é transparente (a cor de sistema que o template usa é
     sobrescrita só para essa janela).
+  - **Barra de rolagem (1.1.5.2).** O modelo da `ScrollBar` do app era só vertical: o polegar tinha
+    largura fixa de 5 px, então numa barra **horizontal** virava uma pílula minúscula solta no meio
+    (relatado com captura). Agora o polegar tem margem (2,5) em vez de largura fixa e a horizontal tem
+    trilha, direção e comandos de página próprios. E a barra horizontal nem devia aparecer em grupos que
+    cabem na janela: o tamanho do canvas era previsto por medidas do sistema (17 px) e não pelas da
+    barra fina (10 px), e um arredondamento deixava o canvas uma fração de pixel além do visível; agora usa o
+    `ViewportWidth/Height` real menos 1 DIP e refaz em `ScrollChanged`. Provado com um ícone propositalmente
+    longe (barra horizontal legítima, polegar de 38% no início) e conferido que o grupo de 15 ícones só
+    tem a vertical.
   - Os comandos de um ícone (remover, recortar, copiar) agem sobre a seleção
     inteira quando o ícone clicado faz parte de uma seleção múltipla, como no
     Explorer (`BuildEntryMenu` → `RemoveEntries` / `CopyEntriesToClipboard`).

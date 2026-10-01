@@ -85,6 +85,7 @@ internal static class LoteVerifier
             if (OnlyBatch)
             {
                 Step("menuOrder", CheckMenuOrder);
+                Step("horizontalScrollbar", CheckHorizontalScrollbar);
                 Step("paste", CheckPaste);
                 Step("keepOnScreen", CheckKeepOnScreen);
                 Step("navigation", CheckNavigation);
@@ -180,7 +181,13 @@ internal static class LoteVerifier
         {
             ["Name"] = FreeGroup, ["IsDesktopGroup"] = true, ["DesktopX"] = left, ["DesktopY"] = top,
             ["DesktopWidth"] = 380, ["DesktopHeight"] = 260, ["IconArrangement"] = "None", ["DisplayMode"] = "Panel",
-            ["Items"] = new JsonArray(), ["Categories"] = new JsonArray()
+            ["Items"] = new JsonArray(new JsonObject
+            {
+                // Far to the right of a 380-wide group: a horizontal scrollbar is legitimately needed.
+                ["Name"] = "Longe", ["Type"] = "Application", ["Target"] = @"C:\Windows\System32\notepad.exe",
+                ["IsDesktopPinned"] = true, ["DesktopIconX"] = 900, ["DesktopIconY"] = 40
+            }),
+            ["Categories"] = new JsonArray()
         });
 
         // Short and crowded, so it must scroll.
@@ -339,6 +346,27 @@ internal static class LoteVerifier
             ["allOwned"] = afterFirst.All(i => i["Target"]!.GetValue<string>().StartsWith(Path.Combine(_data, "Shortcuts"), StringComparison.OrdinalIgnoreCase)),
             ["captionsVisibleToUia"] = afterFirst.Count(i => FindText(hwnd, i["Name"]!.GetValue<string>()) is not null)
         };
+    }
+
+    /// <summary>A horizontal scrollbar that is really needed must look like the vertical one (a long thin bar), not a pill in the middle.</summary>
+    private static JsonNode CheckHorizontalScrollbar()
+    {
+        var hwnd = Window(FreeGroup);
+        BringTop(hwnd);
+        Thread.Sleep(500);
+        Win32.TryCapture(hwnd, Shot("lote2-barra-horizontal"));
+        var pane = AutomationElement.FromHandle(hwnd).FindFirst(TreeScope.Descendants,
+            new PropertyCondition(AutomationElement.IsScrollPatternAvailableProperty, true));
+        var result = new JsonObject { ["scrollPane"] = pane is not null };
+        if (pane?.GetCurrentPattern(ScrollPattern.Pattern) is ScrollPattern scroll)
+        {
+            result["horizontallyScrollable"] = scroll.Current.HorizontallyScrollable;
+            result["horizontalViewSizePercent"] = scroll.Current.HorizontalViewSize;
+            result["verticallyScrollable"] = scroll.Current.VerticallyScrollable;
+        }
+
+        Unpin(hwnd);
+        return result;
     }
 
     private static JsonNode CheckScroll()
@@ -553,7 +581,7 @@ internal static class LoteVerifier
         var hwnd = Window(FreeGroup);
         BringTop(hwnd);
         Win32.GetWindowRect(hwnd, out var rect);
-        var click = new System.Drawing.Point(rect.Right - 60, rect.Bottom - 30);
+        var click = new System.Drawing.Point(rect.Right - 70, rect.Bottom - 60);
         var before = Win32.VisibleWindowsOf(_pid).ToHashSet();
         InvokeFromMenu(click, "New", "Group");
         var prompt = WaitNewWindow(before, 5);
@@ -1590,7 +1618,7 @@ internal static class LoteVerifier
     private static System.Drawing.Point CanvasPoint(IntPtr hwnd)
     {
         Win32.GetWindowRect(hwnd, out var rect);
-        return new System.Drawing.Point(rect.Right - 40, rect.Bottom - 24);
+        return new System.Drawing.Point(rect.Right - 70, rect.Bottom - 60); // clear of both scrollbars
     }
 
     private static (IntPtr Popup, AutomationElement? Menu) OpenMenu(int x, int y)
@@ -1620,7 +1648,8 @@ internal static class LoteVerifier
         var current = menu;
         for (var i = 0; i < path.Length; i++)
         {
-            var item = FindItem(current, path[i]) ?? throw new InvalidOperationException($"menu item '{path[i]}' not found");
+            var item = FindItem(current, path[i])
+                ?? throw new InvalidOperationException($"menu item '{path[i]}' not found among [{string.Join(" | ", TopLevelNames(current).Select(n => n!.ToString()))}] (clicked at {at})");
             if (i < path.Length - 1)
             {
                 ((ExpandCollapsePattern)item.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand();

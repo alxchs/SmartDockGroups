@@ -1,8 +1,8 @@
-# Prompt de geração em um passo — Smart Dock Groups 1.1.5.1
+# Prompt de geração em um passo — Smart Dock Groups 1.1.5.2
 
 > **Para que serve.** Entregue o texto da seção "O texto do prompt" (e os apêndices A a E, que fazem
 > parte dele) a um agente de código, numa pasta vazia, numa única interação. O resultado deve ser
-> o aplicativo **Smart Dock Groups 1.1.5.1**: mesmas telas, mesmos menus, mesmas regras, mesmos
+> o aplicativo **Smart Dock Groups 1.1.5.2**: mesmas telas, mesmos menus, mesmas regras, mesmos
 > números, mesmos textos nos oito idiomas e o mesmo instalador.
 >
 > **Diferença para os outros documentos.** [`PROMPT.md`](PROMPT.md) é o *histórico* do pedido,
@@ -10,7 +10,7 @@
 > arquitetura e o porquê das decisões. **Este arquivo é a especificação do zero**, já com as decisões
 > finais, escrita para ser executada de uma vez.
 >
-> **Como foi escrito.** Todo valor, nome, regra e texto abaixo foi lido do código da 1.1.5.1, não de
+> **Como foi escrito.** Todo valor, nome, regra e texto abaixo foi lido do código da 1.1.5.2, não de
 > documentação anterior — e conferido por auditoria: cada ícone e cada chave de texto que o código usa
 > está nos apêndices, e cada chave citada no texto existe nos arquivos de idioma. Os apêndices A, B, C e D são **gerados** dos
 > arquivos reais por `tools/atualizar_apendices_prompt.py` — rode-o depois de mudar paleta, ícones
@@ -52,7 +52,7 @@ Entregue o código, os testes, a documentação e um instalador que funcione de 
 
 ```
 SmartDockGroups.slnx            (Core, App, Tests, GroupProbe)
-VERSION                         "1.1.5.1" (sem quebra de linha) — única fonte da versão
+VERSION                         "1.1.5.2" (sem quebra de linha) — única fonte da versão
 NuGet.Config                    só ACRESCENTA mapeamentos ao nuget.org (seção 19)
 AGENTS.md  CLAUDE.md            regras para agentes (seção 21)
 docs/OVERVIEW.md  docs/PROMPT.md  docs/PROMPT_GERACAO_UNICA.md
@@ -298,8 +298,9 @@ usa grade de 3 colunas.
 **Rolagem.** O canvas dos ícones fica num `ScrollViewer` (barras automáticas) e o zoom é
 `LayoutTransform` (não `RenderTransform`) para a rolagem enxergar o tamanho real. O canvas é dimensionado
 até o ícone mais distante e **nunca menor que a área visível** (o vazio continua recebendo clique,
-retângulo de seleção e menu); desconta a faixa da barra da outra direção antes de decidir se precisa
-de barra (senão sobram pixels e aparece uma barra horizontal inútil). Roda do mouse rola; **Ctrl+roda**
+retângulo de seleção e menu); usa o espaço que o próprio `ScrollViewer` informa (`ViewportWidth/Height`, menos 1 DIP de folga para
+arredondamento; refeito em `ScrollChanged` quando uma barra aparece ou some) — prever pelas medidas do sistema
+deixava uma fração de pixel passar do visível e aparecia uma barra horizontal inútil em alguns DPIs. Roda do mouse rola; **Ctrl+roda**
 é zoom (`DesktopIconScale`, passos de 0,1, faixa 0,5–3,0); o quadradinho onde as duas barras se
 encontram é transparente. Setas, seleção e o resultado da busca rolam até o ícone.
 
@@ -568,7 +569,7 @@ Dois dicionários de recursos (apêndice A), escolhidos por `AppThemeService` (S
 `AppsUseLightTheme`; falha → escuro). Fonte `Segoe UI Variable Text, Segoe UI`, 13 pt (11,5 pequeno);
 comandos de 28 px, campos de 27 px, cantos 4 (6 nos maiores), anel de foco de 2 px; estilos para
 `TextBlock` (global, usa `AppTextBrush`), `Button` (+ primário em `AppAccentBrush`, ícone, fechar,
-barra de título), `TextBox`, `CheckBox`, `ComboBox`/`ComboBoxItem`, `Slider`, `ScrollBar` (fina),
+barra de título), `TextBox`, `CheckBox`, `ComboBox`/`ComboBoxItem`, `Slider`, `ScrollBar` (fina, 10 px, polegar com margem 2,5 — **não** largura fixa — e modelo próprio para a horizontal: trilha horizontal, sem inverter a direção, comandos Página à esquerda/direita),
 `GroupBox`, e `ItemTemplate` de rótulo para listas de objetos anônimos (`AppLabelItemTemplate`, necessário
 para o ComboBox mostrar o texto). `LocExtension` (`{loc:Loc chave}`) traduz em XAML. Sem editor de tema
 visual: o tema do grupo muda por cor de fundo/imagem/opacidade/compartilhar. (O repositório ainda tem uma

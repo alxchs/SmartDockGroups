@@ -507,7 +507,7 @@
                     <Grid Background="Transparent">
                         <Track x:Name="PART_Track" IsDirectionReversed="True">
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
+                                <RepeatButton x:Name="PageBack" Command="ScrollBar.PageUpCommand" Focusable="False">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
                                             <Border Background="Transparent" />
@@ -516,7 +516,7 @@
                                 </RepeatButton>
                             </Track.DecreaseRepeatButton>
                             <Track.IncreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
+                                <RepeatButton x:Name="PageForward" Command="ScrollBar.PageDownCommand" Focusable="False">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
                                             <Border Background="Transparent" />
@@ -528,8 +528,11 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
+                                            <!-- A margin, not a fixed width: the thumb is stretched across the bar
+                                                 in one direction and sized along it by the Track in the other, so a
+                                                 fixed width turned a horizontal bar's thumb into a 5 px pill. -->
                                             <Border x:Name="Bar"
-                                                    Width="5"
+                                                    Margin="2.5"
                                                     CornerRadius="3"
                                                     Background="{DynamicResource AppBorderStrongBrush}" />
                                             <ControlTemplate.Triggers>
@@ -543,6 +546,14 @@
                             </Track.Thumb>
                         </Track>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter TargetName="PART_Track" Property="Orientation" Value="Horizontal" />
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                            <Setter TargetName="PageBack" Property="Command" Value="ScrollBar.PageLeftCommand" />
+                            <Setter TargetName="PageForward" Property="Command" Value="ScrollBar.PageRightCommand" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

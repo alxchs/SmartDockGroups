@@ -1078,6 +1078,13 @@ internal sealed class DesktopGroupWindow : Window
             IsTabStop = false
         };
         _scroller.SizeChanged += (_, _) => UpdateCanvasExtent();
+        _scroller.ScrollChanged += (_, e) =>
+        {
+            if (e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0)
+            {
+                UpdateCanvasExtent();
+            }
+        };
 
         // The stock template paints the square where both scrollbars meet with the system
         // control colour — a white block on a dark group. Only that square reads this key.
@@ -2799,6 +2806,28 @@ internal sealed class DesktopGroupWindow : Window
 
         var contentWidth = right + (PaddingX / 2);
         var contentHeight = bottom + PaddingY;
+
+        // The room the icons really have is what the scroller reports once its bars are (or are not)
+        // showing — not a prediction from system metrics, which differ from this app's thin bars and
+        // let a rounding error at some DPIs push the canvas a fraction past the viewport, which
+        // is all it takes for a pointless horizontal bar to appear. A device-independent pixel of
+        // slack absorbs the rounding; ScrollChanged below re-runs this when the bars come or go.
+        if (_scroller.ViewportWidth > 0 && _scroller.ViewportHeight > 0)
+        {
+            var width = Math.Max(contentWidth, (_scroller.ViewportWidth - 1) / scale);
+            var height = Math.Max(contentHeight, (_scroller.ViewportHeight - 1) / scale);
+            if (Math.Abs(_canvas.Width - width) > 0.5 || double.IsNaN(_canvas.Width))
+            {
+                _canvas.Width = width;
+            }
+
+            if (Math.Abs(_canvas.Height - height) > 0.5 || double.IsNaN(_canvas.Height))
+            {
+                _canvas.Height = height;
+            }
+
+            return;
+        }
 
         // The room left once the other direction's scrollbar, if it will be shown, takes its
         // strip. Filling the full width before the vertical bar appeared is what used to
