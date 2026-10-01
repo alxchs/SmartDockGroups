@@ -276,6 +276,46 @@ internal sealed class DesktopOrganizerService(IconCacheService iconCache)
         RelayoutDock(animate: true);
     }
 
+    /// <summary>
+    /// While one docked group is being dragged, puts every other one where the stack puts it
+    /// relative to the dragged one — same left edge, each below the one above — without saving.
+    /// </summary>
+    public void DockFollow(MenuCategory member, double left, double top)
+    {
+        if (_configuration is null || !IsDocked)
+        {
+            return;
+        }
+
+        var ordered = _configuration.Dock.Order
+            .Select(id => _windows.FirstOrDefault(pair => pair.Key.Id == id))
+            .Where(pair => pair.Key is not null)
+            .ToList();
+
+        var offset = 0.0;
+        foreach (var pair in ordered)
+        {
+            if (ReferenceEquals(pair.Key, member))
+            {
+                break;
+            }
+
+            offset += pair.Value.ActualHeight;
+        }
+
+        var y = top - offset;
+        foreach (var pair in ordered)
+        {
+            if (!ReferenceEquals(pair.Key, member))
+            {
+                pair.Value.HoldPlacement(TimeSpan.FromSeconds(1));
+                pair.Value.PlaceWithoutSaving(left, y);
+            }
+
+            y += pair.Value.ActualHeight;
+        }
+    }
+
     /// <summary>A docked group was dragged to (<paramref name="left"/>, <paramref name="top"/>): the stack follows it.</summary>
     public void DockMovedTo(MenuCategory member, double left, double top)
     {

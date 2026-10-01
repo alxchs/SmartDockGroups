@@ -772,3 +772,11 @@ voltando a barra exatamente ao estado anterior.
    mostra o grupo e foca o primeiro elemento.
 6. Menus: Configurações por último; um menu "Novo" com Atalho e Grupo (e o atalho para um grupo); Renomear,
    Colapsar/Expandir, Acoplar, Duplicar, Fechar e Remover numa mesma seção, antes de Configurações.
+
+## 32. Menu ilegível em outro PC, abertura lenta e acoplado que não leva os outros (1.1.5.0)
+
+1. Em outro computador (Windows em modo claro) o texto dos menus ficava escuro sobre o menu escuro. Reproduza
+   com o app em tema claro e corrija pela causa: o estilo global de texto vencia a cor do menu.
+2. Um amigo achou o app lento para abrir. Meça (não suponha): menus de clique direito completos eram
+   montados para cada ícone na abertura; monte-os só quando o usuário clicar. Pré-compile (ReadyToRun) o publish.
+3. Com os grupos acoplados, arrastar um deles leva os outros junto, durante o arrasto.

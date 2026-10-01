@@ -40,10 +40,24 @@
                                               ContentSource="Icon"
                                               Margin="0,0,8,0"
                                               VerticalAlignment="Center" />
+                            <!--
+                                The app has an implicit TextBlock style (Foreground = AppTextBrush, which
+                                follows the app's light/dark theme). It would win over the colour the group
+                                gives its menu, so with the app in the light theme the text went dark on
+                                a dark menu while the icons, which use the group's colour, stayed bright.
+                                This local style makes the header text follow the menu item's own Foreground.
+                            -->
                             <ContentPresenter Grid.Column="1"
                                               ContentSource="Header"
                                               VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                                              RecognizesAccessKey="True">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground"
+                                                Value="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=MenuItem}}" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
                             <Path Grid.Column="2"
                                   x:Name="SubmenuArrow"
                                   Data="M0,0 L4,4 L0,8"

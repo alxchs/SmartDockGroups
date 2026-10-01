@@ -33,7 +33,8 @@ Write-Host "[build_installer] publicando self-contained win-x64 $version..." -Fo
 & dotnet publish $csproj -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:EnableCompressionInSingleFile=true
+    -p:EnableCompressionInSingleFile=true `
+    -p:PublishReadyToRun=true
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

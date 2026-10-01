@@ -178,6 +178,23 @@ funciona de fora desta rede, sem custo.
       organizado por nome, mover em 24 passos e soltar num ponto vazio de um grupo
       de posição livre: origem 14→13 itens, destino 3→4, e a legenda do ícone parou a
       17 px do ponto da soltura.
+  - **Menus montados só no clique direito (1.1.5.0).** Cada ícone, o cabeçalho, o canvas e
+    o ladrilho montavam um menu completo ao abrir — com o submenu "Grupo ▸" de ~50 itens
+    em cada um dos 35 ícones — e o refaziam no clique. Era a maior parte do tempo de
+    abertura dos grupos. Medido com a configuração real (3 grupos, 35 atalhos): primeira
+    abertura, cache de ícones vazio, 4,6 s → 2,8 s até os grupos aparecerem; aberturas
+    seguintes 3,0 s → 2,0 s. O publish passou a usar ReadyToRun (menos compilação a cada
+    partida; +5,6 MB, ~0,1–0,6 s, mais na primeira abertura). Sobra ~1 s de partida do WPF.
+  - **Texto dos menus legível em qualquer tema do app.** O app tem um estilo global de
+    `TextBlock` (`AppTextBrush`, claro/escuro conforme o Windows) que vencia a cor que o grupo
+    dá ao menu: com o Windows em modo claro, o texto saía quase preto (`#1A1A1A`) sobre o
+    menu escuro do grupo, e só os ícones — que usam a cor do grupo — apareciam. Reproduzido com
+    `SDG_TEST_APPTHEME=Light` e corrigido em `MenuTemplates.xaml` (o texto do cabeçalho segue o
+    `Foreground` do próprio item). Se o grupo mandar uma cor de texto escura sobre fundo escuro,
+    o menu agora obedece (é a cor que o grupo pediu).
+  - **Acoplado, arrastar qualquer título leva a pilha junto, ao vivo** (`DockFollow`, a
+    cada `LocationChanged`): medido arrastando o 3º de 6 grupos, os seis se moveram juntos
+    enquanto o botão estava apertado e terminaram com a mesma diferença.
   - **Limite de 30 entradas por grupo** (`GroupLimits`, no Core; atalhos + subpastas).
     Colar, soltar, importar, criar e mover de outro grupo passam pelo mesmo teste: o que
     couber entra, o resto fica onde estava (um arraste recusado não perde nada) e um aviso

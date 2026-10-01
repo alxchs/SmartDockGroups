@@ -346,7 +346,6 @@ internal sealed class DesktopGroupWindow : Window
     {
         _isDockedMember = false;
         BeginAnimation(TopProperty, null);
-        _header.ContextMenu = BuildHeaderContextMenu();
         PlaceWithoutSaving(_category.DesktopX, _category.DesktopY);
         SetCollapsed(_category.IsCollapsed);
         FinishStructuralChange();
@@ -504,8 +503,17 @@ internal sealed class DesktopGroupWindow : Window
         _holdPlacementUntil = DateTime.UtcNow + duration;
     }
 
+    /// <summary>True while the user drags this docked group by its title: the rest of the stack follows live.</summary>
+    private bool _dockDragging;
+
     private void OnLocationChanged(object? sender, EventArgs e)
     {
+        if (_dockDragging && _commands is not null)
+        {
+            _commands.DockFollow(_category, Left, Top);
+            return;
+        }
+
         if (DateTime.UtcNow < _holdPlacementUntil)
         {
             return;
@@ -744,8 +752,6 @@ internal sealed class DesktopGroupWindow : Window
 
         if (IsAppFolder)
         {
-            // A ContextMenu cannot be shared between two owners, so the tile gets its own.
-            _folderHost.ContextMenu = BuildHeaderContextMenu();
             RefreshFolderTile();
             _border.Visibility = Visibility.Collapsed;
             _folderHost.Visibility = Visibility.Visible;
@@ -792,7 +798,6 @@ internal sealed class DesktopGroupWindow : Window
         // The sheet belongs to the folder look; leaving it (possibly from the sheet's own menu) closes it.
         _overlay?.Close();
         _category.DisplayMode = IsAppFolder ? DesktopGroupDisplayMode.Panel : DesktopGroupDisplayMode.AppFolder;
-        _header.ContextMenu = BuildHeaderContextMenu();
         ApplyDisplayMode();
         _onLayoutChanged(_category);
     }
@@ -889,8 +894,7 @@ internal sealed class DesktopGroupWindow : Window
         _header = new Border
         {
             Padding = new Thickness(8, 4, 4, 4),
-            Child = headerPanel,
-            ContextMenu = BuildHeaderContextMenu()
+            Child = headerPanel
         };
         _header.MouseLeftButtonDown += OnHeaderMouseLeftButtonDown;
         // Rebuilt fresh on every right-click rather than trusted to whichever action
@@ -910,8 +914,7 @@ internal sealed class DesktopGroupWindow : Window
         _canvas = new Canvas
         {
             Background = Brushes.Transparent,
-            LayoutTransform = _zoomTransform,
-            ContextMenu = BuildHeaderContextMenu()
+            LayoutTransform = _zoomTransform
         };
         _canvas.MouseLeftButtonDown += (_, e) =>
         {
@@ -2400,7 +2403,6 @@ internal sealed class DesktopGroupWindow : Window
     {
         _category.AreaOpacity = value;
         ApplyBackground();
-        _header.ContextMenu = BuildHeaderContextMenu();
         _onLayoutChanged(_category);
     }
 
@@ -2408,7 +2410,6 @@ internal sealed class DesktopGroupWindow : Window
     {
         _category.TitleOpacity = value;
         ApplyHeaderBackground();
-        _header.ContextMenu = BuildHeaderContextMenu();
         _onLayoutChanged(_category);
     }
 
@@ -2434,7 +2435,6 @@ internal sealed class DesktopGroupWindow : Window
         }
 
         SetCollapsed(!_category.IsCollapsed);
-        _header.ContextMenu = BuildHeaderContextMenu();
 
         // Expanding near the bottom or right edge must not push the group off the screen.
         if (!_category.IsCollapsed)
@@ -3910,7 +3910,7 @@ internal sealed class DesktopGroupWindow : Window
     /// The icon's hit area and its highlight: a rounded plate, so the selection, hover and search
     /// emphasis read as a soft tile rather than a hard rectangle.
     /// </summary>
-    private static Border WrapTile(StackPanel content, ContextMenu menu) => new()
+    private static Border WrapTile(StackPanel content, ContextMenu? menu) => new()
     {
         Width = TileSize - 8,
         CornerRadius = new CornerRadius(10),
@@ -3939,7 +3939,7 @@ internal sealed class DesktopGroupWindow : Window
     private FrameworkElement BuildTile(LaunchItem item)
     {
         var stack = new StackPanel { Orientation = Orientation.Vertical };
-        var tile = WrapTile(stack, BuildItemTileContextMenu(item));
+        var tile = WrapTile(stack, null);
 
         // Rebuilt per click: the menu acts on the selection as it is now, and a right-click on an
         // icon outside the selection selects it first, as Explorer does.
@@ -4076,7 +4076,7 @@ internal sealed class DesktopGroupWindow : Window
     private FrameworkElement BuildFolderTile(MenuCategory folder)
     {
         var stack = new StackPanel { Orientation = Orientation.Vertical };
-        var tile = WrapTile(stack, BuildFolderTileContextMenu(folder));
+        var tile = WrapTile(stack, null);
         // The "Remove" item's enabled state depends on the selection at the moment of
         // the click, not whenever the tile last happened to be rebuilt — rebuild the
         // menu fresh right before it opens rather than let that state go stale.
@@ -4144,12 +4144,14 @@ internal sealed class DesktopGroupWindow : Window
 
         // Shown only while the button is held: hovering the title is not a move.
         _header.Cursor = Cursors.SizeAll;
+        _dockDragging = _isDockedMember;
         try
         {
             DragMove();
         }
         finally
         {
+            _dockDragging = false;
             _header.Cursor = Cursors.Arrow;
         }
 

@@ -46,6 +46,9 @@ internal interface IDesktopGroupCommands
     /// <summary>Opens this docked group (closing whichever was open), or closes it when it is the open one.</summary>
     void DockToggleExpanded(MenuCategory member);
 
+    /// <summary>The user is dragging a docked group right now: the rest of the stack moves with it, live.</summary>
+    void DockFollow(MenuCategory member, double left, double top);
+
     /// <summary>The user dragged a docked group to here: the whole stack follows.</summary>
     void DockMovedTo(MenuCategory member, double left, double top);
 

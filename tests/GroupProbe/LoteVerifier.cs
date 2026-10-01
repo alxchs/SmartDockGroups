@@ -199,6 +199,21 @@ internal static class LoteVerifier
             ["Items"] = crowd, ["Categories"] = new JsonArray()
         });
 
+        // Optional: the app itself in the light theme (SDG_TEST_APPTHEME=Light), as on a PC with Windows in light mode.
+        if (Environment.GetEnvironmentVariable("SDG_TEST_APPTHEME") is { Length: > 0 } appTheme)
+        {
+            config["Behavior"]!["AppTheme"] = appTheme;
+        }
+
+        // Optional: a group whose own colours clash, to see how its menus read (SDG_TEST_TEXT=#404040).
+        if (Environment.GetEnvironmentVariable("SDG_TEST_TEXT") is { Length: > 0 } clash)
+        {
+            groups.First(g => g!["Name"]!.GetValue<string>() == FreeGroup)!.AsObject()["ThemeOverride"] = new JsonObject
+            {
+                ["BackgroundColor"] = "#1E1E1E", ["TextColor"] = clash
+            };
+        }
+
         // 29 entries already: room for exactly one more.
         var full = new JsonArray();
         for (var i = 1; i <= 29; i++)
@@ -1042,6 +1057,38 @@ internal static class LoteVerifier
         Win32.mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
         Thread.Sleep(1500);
         result["dragged"] = DescribeStack("5-arrastado");
+
+        // Drag a MIDDLE title (not the first): everyone else must move with it while the button is down.
+        var mid = StackInOrder();
+        var middleName = mid[2].Name;
+        var middleHandle = Window(middleName);
+        BringTop(middleHandle);
+        Thread.Sleep(300);
+        Win32.GetWindowRect(middleHandle, out var mr);
+        var midGrab = new System.Drawing.Point(mr.Left + 60, mr.Top + 12);
+        var beforeMid = StackInOrder().Select(x => (x.Name, x.Rect.Left, x.Rect.Top)).ToList();
+        Win32.SetCursorPos(midGrab.X, midGrab.Y);
+        Thread.Sleep(200);
+        Win32.mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        for (var i = 1; i <= 12; i++)
+        {
+            Win32.SetCursorPos(midGrab.X - (15 * i), midGrab.Y + (8 * i));
+            Thread.Sleep(40);
+        }
+
+        Thread.Sleep(300);
+        var duringMid = StackInOrder().Select(x => (x.Name, x.Rect.Left, x.Rect.Top)).ToList();
+        Win32.mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(1200);
+        var afterMid = StackInOrder().Select(x => (x.Name, x.Rect.Left, x.Rect.Top)).ToList();
+        result["dragMiddle"] = new JsonObject
+        {
+            ["dragged"] = middleName,
+            ["deltaOfEachWhileHeld"] = new JsonArray(beforeMid.Zip(duringMid).Select(p => (JsonNode)$"{p.First.Name}: {p.Second.Left - p.First.Left},{p.Second.Top - p.First.Top}").ToArray()),
+            ["allMovedTogetherWhileHeld"] = beforeMid.Zip(duringMid).Select(p => (p.Second.Left - p.First.Left, p.Second.Top - p.First.Top)).ToList() is var d && d.All(x => Math.Abs(x.Item1 - d[0].Item1) <= 3 && Math.Abs(x.Item2 - d[0].Item2) <= 3),
+            ["finalDeltaOfEach"] = new JsonArray(beforeMid.Zip(afterMid).Select(p => (JsonNode)$"{p.First.Name}: {p.Second.Left - p.First.Left},{p.Second.Top - p.First.Top}").ToArray()),
+            ["contiguousAfter"] = DescribeStack("5b-meio-arrastado")["contiguous"]!.GetValue<bool>()
+        };
 
         Restart(exe, null);
         result["afterRestart"] = DescribeStack("6-reaberto");

@@ -458,6 +458,8 @@ public partial class App : Application, IDesktopGroupCommands
 
     void IDesktopGroupCommands.DockToggleExpanded(MenuCategory member) => _desktopOrganizer?.ToggleDockExpanded(member);
 
+    void IDesktopGroupCommands.DockFollow(MenuCategory member, double left, double top) => _desktopOrganizer?.DockFollow(member, left, top);
+
     void IDesktopGroupCommands.DockMovedTo(MenuCategory member, double left, double top) => _desktopOrganizer?.DockMovedTo(member, left, top);
 
     void IDesktopGroupCommands.MoveDockInto(Rect workArea) => _desktopOrganizer?.MoveDockInto(workArea);

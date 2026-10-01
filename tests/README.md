@@ -106,6 +106,8 @@ os cenários do lote de 2026-09-30, gravando `report-lote.json` e capturas recor
 `--drag` arrasta um ícone de um grupo para outro com o mouse real e mede onde ele caiu (os quadros saem com a tela inteira: nunca versionar); `--batch` roda a ordem do menu, os arrastes até as bordas (inclusive sobre a divisa entre monitores), a
 navegação por teclas, o limite de 30 e o atalho de grupo; `--dock` roda só o acoplamento (inclusive os comandos com o app fechado, relançando o exe
 com `--desktop-action=`); `--menu-edges` mede os menus com o grupo em cada canto de cada monitor.
+`SDG_TEST_APPTHEME=Light` roda o app em tema claro (como num PC com Windows claro) e `SDG_TEST_TEXT=#404040` dá ao grupo de teste uma cor
+de texto que destoa — para ver como os menus ficam.
 `--clean-cache` = cenário "Instalação limpa"; `--reuse-data` reaproveita a pasta de uma rodada
 anterior (atalhos já adotados). Os rótulos procurados nos menus são os do idioma da configuração
 copiada (hoje inglês).

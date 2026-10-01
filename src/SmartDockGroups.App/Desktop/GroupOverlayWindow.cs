@@ -154,7 +154,6 @@ internal sealed class GroupOverlayWindow : Window
 
         // Right-clicking the sheet anywhere but on an icon gives the group's own menu —
         // the same one the panel's header and empty canvas show.
-        shell.ContextMenu = _owner.BuildGroupMenu();
         shell.PreviewMouseRightButtonDown += (_, _) => shell.ContextMenu = _owner.BuildGroupMenu();
 
         _root = new Grid { Background = Brushes.Transparent, Opacity = 0 };
@@ -273,8 +272,7 @@ internal sealed class GroupOverlayWindow : Window
             _tilesByEntry[entry] = tile;
             _openActionsByEntry[entry] = onActivate;
 
-            // The panel's own themed menu, rebuilt per click so it reflects the selection.
-            tile.ContextMenu = _owner.BuildEntryMenu(entry, Current, _selectedEntries, onActivate, this);
+            // The panel's own themed menu, built when the user right-clicks (so it reflects the selection).
             tile.PreviewMouseRightButtonDown += (_, _) =>
             {
                 if (!_selectedEntries.Contains(entry))
