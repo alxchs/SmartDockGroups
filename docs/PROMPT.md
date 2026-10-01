@@ -797,3 +797,10 @@ A barra de rolagem aparece parcialmente no lugar errado: o fim dela fica no cent
 resto (captura enviada). Reproduza antes de corrigir (ícone propositalmente longe, para exigir barra horizontal),
 ache a causa (modelo só vertical: polegar de largura fixa e comandos de página verticais), conserte o modelo e a
 conta que fazia a barra horizontal aparecer onde não era necessária.
+
+## 35. Barra de rolagem fina, no tamanho do Windows e na cor do grupo (1.1.5.3)
+
+A barra ficou grosseira e não seguiu a medida de barra configurada no Windows; e, como cada grupo tem uma cor,
+ela deveria acompanhar um tom acima ou abaixo da janela para não destoar. Faixa com a métrica do Windows, polegar
+fino arredondado, cor derivada do fundo do grupo (mais clara no escuro, mais escura no claro), também na folha
+do App Folder.

@@ -1,8 +1,8 @@
-# Prompt de geração em um passo — Smart Dock Groups 1.1.5.2
+# Prompt de geração em um passo — Smart Dock Groups 1.1.5.3
 
 > **Para que serve.** Entregue o texto da seção "O texto do prompt" (e os apêndices A a E, que fazem
 > parte dele) a um agente de código, numa pasta vazia, numa única interação. O resultado deve ser
-> o aplicativo **Smart Dock Groups 1.1.5.2**: mesmas telas, mesmos menus, mesmas regras, mesmos
+> o aplicativo **Smart Dock Groups 1.1.5.3**: mesmas telas, mesmos menus, mesmas regras, mesmos
 > números, mesmos textos nos oito idiomas e o mesmo instalador.
 >
 > **Diferença para os outros documentos.** [`PROMPT.md`](PROMPT.md) é o *histórico* do pedido,
@@ -10,7 +10,7 @@
 > arquitetura e o porquê das decisões. **Este arquivo é a especificação do zero**, já com as decisões
 > finais, escrita para ser executada de uma vez.
 >
-> **Como foi escrito.** Todo valor, nome, regra e texto abaixo foi lido do código da 1.1.5.2, não de
+> **Como foi escrito.** Todo valor, nome, regra e texto abaixo foi lido do código da 1.1.5.3, não de
 > documentação anterior — e conferido por auditoria: cada ícone e cada chave de texto que o código usa
 > está nos apêndices, e cada chave citada no texto existe nos arquivos de idioma. Os apêndices A, B, C e D são **gerados** dos
 > arquivos reais por `tools/atualizar_apendices_prompt.py` — rode-o depois de mudar paleta, ícones
@@ -52,7 +52,7 @@ Entregue o código, os testes, a documentação e um instalador que funcione de 
 
 ```
 SmartDockGroups.slnx            (Core, App, Tests, GroupProbe)
-VERSION                         "1.1.5.2" (sem quebra de linha) — única fonte da versão
+VERSION                         "1.1.5.3" (sem quebra de linha) — única fonte da versão
 NuGet.Config                    só ACRESCENTA mapeamentos ao nuget.org (seção 19)
 AGENTS.md  CLAUDE.md            regras para agentes (seção 21)
 docs/OVERVIEW.md  docs/PROMPT.md  docs/PROMPT_GERACAO_UNICA.md
@@ -569,7 +569,7 @@ Dois dicionários de recursos (apêndice A), escolhidos por `AppThemeService` (S
 `AppsUseLightTheme`; falha → escuro). Fonte `Segoe UI Variable Text, Segoe UI`, 13 pt (11,5 pequeno);
 comandos de 28 px, campos de 27 px, cantos 4 (6 nos maiores), anel de foco de 2 px; estilos para
 `TextBlock` (global, usa `AppTextBrush`), `Button` (+ primário em `AppAccentBrush`, ícone, fechar,
-barra de título), `TextBox`, `CheckBox`, `ComboBox`/`ComboBoxItem`, `Slider`, `ScrollBar` (fina, 10 px, polegar com margem 2,5 — **não** largura fixa — e modelo próprio para a horizontal: trilha horizontal, sem inverter a direção, comandos Página à esquerda/direita),
+barra de título), `TextBox`, `CheckBox`, `ComboBox`/`ComboBoxItem`, `Slider`, `ScrollBar` (a **faixa** tem a espessura da métrica de scrollbar do Windows — `SystemParameters.VerticalScrollBarWidth`/`HorizontalScrollBarHeight` via `DynamicResource`, então acompanha a configuração e o DPI —, com um polegar fino arredondado de 6 px dentro dela; modelo próprio para a horizontal: trilha horizontal, sem inverter a direção, comandos Página à esquerda/direita; a **cor** do polegar vem dos recursos `ScrollThumbBrush`/`ScrollThumbHoverBrush`, que cada grupo e a folha do App Folder sobrescrevem com um tom do próprio fundo — 28% mais claro num grupo escuro, 28% mais escuro num claro, 46% sob o mouse —, ou, sobre imagem/fundo translúcido, um tom suave da cor do texto),
 `GroupBox`, e `ItemTemplate` de rótulo para listas de objetos anônimos (`AppLabelItemTemplate`, necessário
 para o ComboBox mostrar o texto). `LocExtension` (`{loc:Loc chave}`) traduz em XAML. Sem editor de tema
 visual: o tema do grupo muda por cor de fundo/imagem/opacidade/compartilhar. (O repositório ainda tem uma
@@ -680,6 +680,8 @@ cada afirmação técnica, o comando que a mediu.
 | `AppSurface2Brush` | `#2E2E2E` | `#FAFAFA` |
 | `AppSurface3Brush` | `#333333` | `#F0F0F0` |
 | `AppBorderBrush` | `#3D3D3D` | `#E0E0E0` |
+| `ScrollThumbBrush` | `#525252` | `#C8C8C8` |
+| `ScrollThumbHoverBrush` | `#B8B8B8` | `#616161` |
 | `AppBorderStrongBrush` | `#525252` | `#C8C8C8` |
 | `AppTextBrush` | `#F2F2F2` | `#1A1A1A` |
 | `AppSecondaryTextBrush` | `#B8B8B8` | `#616161` |

@@ -498,8 +498,15 @@
         <TextBlock Text="{Binding Label}" />
     </DataTemplate>
 
+    <!--
+        Scrollbars follow the Windows scrollbar metric (SM_CXVSCROLL / SM_CYHSCROLL, so they change
+        with the user's Windows settings and DPI) for the size of the whole track - the part the
+        mouse can grab - and draw a slim rounded thumb inside it. The thumb colour is a resource
+        (ScrollThumbBrush / ScrollThumbHoverBrush) that a group overrides with a tone of its own
+        colour (see ScrollBarTone), so the bar never clashes with the window it sits in.
+    -->
     <Style TargetType="ScrollBar">
-        <Setter Property="Width" Value="10" />
+        <Setter Property="Width" Value="{DynamicResource {x:Static SystemParameters.VerticalScrollBarWidthKey}}" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Template">
             <Setter.Value>
@@ -528,16 +535,35 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <!-- A margin, not a fixed width: the thumb is stretched across the bar
-                                                 in one direction and sized along it by the Track in the other, so a
-                                                 fixed width turned a horizontal bar's thumb into a 5 px pill. -->
-                                            <Border x:Name="Bar"
-                                                    Margin="2.5"
-                                                    CornerRadius="3"
-                                                    Background="{DynamicResource AppBorderStrongBrush}" />
+                                            <Grid Background="Transparent">
+                                                <Border x:Name="Bar"
+                                                        CornerRadius="3"
+                                                        Background="{DynamicResource ScrollThumbBrush}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Width" Value="6" />
+                                                            <Setter Property="HorizontalAlignment" Value="Center" />
+                                                            <Setter Property="VerticalAlignment" Value="Stretch" />
+                                                            <Setter Property="Margin" Value="0,1" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Orientation, RelativeSource={RelativeSource AncestorType=ScrollBar}}" Value="Horizontal">
+                                                                    <Setter Property="Width" Value="NaN" />
+                                                                    <Setter Property="Height" Value="6" />
+                                                                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                                                    <Setter Property="Margin" Value="1,0" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                            </Grid>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bar" Property="Background" Value="{DynamicResource AppSecondaryTextBrush}" />
+                                                    <Setter TargetName="Bar" Property="Background" Value="{DynamicResource ScrollThumbHoverBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsDragging" Value="True">
+                                                    <Setter TargetName="Bar" Property="Background" Value="{DynamicResource ScrollThumbHoverBrush}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -559,7 +585,7 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="Orientation" Value="Horizontal">
-                <Setter Property="Height" Value="10" />
+                <Setter Property="Height" Value="{DynamicResource {x:Static SystemParameters.HorizontalScrollBarHeightKey}}" />
                 <Setter Property="Width" Value="Auto" />
             </Trigger>
         </Style.Triggers>

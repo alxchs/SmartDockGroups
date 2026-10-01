@@ -127,6 +127,9 @@ internal sealed class GroupOverlayWindow : Window
             Content = _grid
         };
 
+        // The sheet is the theme colour at 82%: the bar takes a tone of it, like the panel's does.
+        SmartDockGroups.App.Theming.ScrollBarTone.Apply(scroller, _theme.BackgroundColor, seeThrough: false, Colors.White);
+
         var column = new StackPanel
         {
             Orientation = Orientation.Vertical,

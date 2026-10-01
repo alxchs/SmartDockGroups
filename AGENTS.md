@@ -63,7 +63,7 @@ encerra o processo que ela mesma abriu. `SDG_TEST_APPTHEME=Light` testa o app em
 Existem duas camadas, e as duas rodam antes de qualquer publicação:
 
 ```
-dotnet test tests/SmartDockGroups.Tests          # 101 assercoes, ~4 s
+dotnet test tests/SmartDockGroups.Tests          # 109 assercoes, ~4 s
 dotnet build -c Release tests/GroupProbe     # sonda de caracterizacao
 ```
 

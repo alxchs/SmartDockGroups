@@ -9,7 +9,7 @@ publicação.
 dotnet test tests/SmartDockGroups.Tests
 ```
 
-101 testes, ~4 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
+109 testes, ~4 s. Cobrem a lógica que não tem tela, utilitários de ícone e posicionamento multi-monitor:
 
 - **`MonitorPlacementTests`** — a geometria que resgata um grupo quando o conjunto de
   monitores mudou. O `docs/OVERVIEW.md` registrava que essa matemática tinha sido conferida
@@ -43,6 +43,8 @@ dotnet test tests/SmartDockGroups.Tests
 - **`LocalizationCompletenessTests`** — cada idioma tem exatamente as chaves do inglês e os mesmos `{0}`/`{1}`;
   toda chave que o código ou o XAML pede existe. (Sem isso, uma chave faltando só aparece como texto em
   inglês numa interface em outro idioma.)
+- **`ScrollBarToneTests`** — a barra de rolagem toma um tom do fundo do grupo: mais clara num fundo escuro (mantendo o
+  matiz, nunca branca pura), mais escura num claro (nunca preta pura), e mais forte sob o mouse.
 - **`PromptPositioningTests`** — cálculo de centralização de janelas por monitor com DPI heterogêneo,
   garantia de contenção na área de trabalho útil, conversão física para DIPs WPF, e validação interativa
   em ambiente multi-monitor real (`Screen.AllScreens`) com medição de retângulos e capturas.

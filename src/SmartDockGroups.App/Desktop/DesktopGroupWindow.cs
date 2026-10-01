@@ -1523,6 +1523,7 @@ internal sealed class DesktopGroupWindow : Window
     {
         UpdateHeaderTooltip();
         _border.BorderBrush = new SolidColorBrush(ComputeGroupBorderColor());
+        ApplyScrollBarTone();
 
         if (_category.AreaOpacity <= 0)
         {
@@ -1542,6 +1543,25 @@ internal sealed class DesktopGroupWindow : Window
 
         // The group slider rides on top of the theme's own opacity rather than replacing it.
         _border.Background = ThemeBrushes.CreateBrush(_theme.BackgroundColor, _theme.Opacity * _category.AreaOpacity);
+    }
+
+    /// <summary>
+    /// The scrollbar wears a tone of the group's own face: lighter on a dark group, darker on a light
+    /// one. Over a picture or a mostly see-through group there is no single face to match, so it
+    /// takes a soft tone of the label colour instead.
+    /// </summary>
+    private void ApplyScrollBarTone()
+    {
+        if (_scroller is null)
+        {
+            return;
+        }
+
+        var seeThrough = _category.AreaOpacity <= 0
+            || (_theme.Opacity * _category.AreaOpacity) < 0.5
+            || !string.IsNullOrWhiteSpace(_category.DesktopBackgroundImagePath);
+        var text = TileTextBrush() is SolidColorBrush solid ? solid.Color : Colors.White;
+        ScrollBarTone.Apply(_scroller, _theme.BackgroundColor, seeThrough, text);
     }
 
     /// <summary>

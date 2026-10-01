@@ -339,6 +339,15 @@ funciona de fora desta rede, sem custo.
     `ViewportWidth/Height` real menos 1 DIP e refaz em `ScrollChanged`. Provado com um ícone propositalmente
     longe (barra horizontal legítima, polegar de 38% no início) e conferido que o grupo de 15 ícones só
     tem a vertical.
+  - **Espessura e cor da barra (1.1.5.3).** A faixa da barra passou a ter a **espessura da métrica de
+    scrollbar do Windows** (`SystemParameters.VerticalScrollBarWidth`/`HorizontalScrollBarHeight` por
+    `DynamicResource`; 17,3 DIP nesta máquina), que acompanha as configurações e o DPI; antes era fixa
+    em 10. Dentro dela o polegar é fino (6 px, cantos arredondados), e sua **cor é um tom do fundo do
+    próprio grupo** (`ScrollBarTone`, 28% mais claro num fundo escuro, 28% mais escuro num claro, 46%
+    sob o mouse ou arrastando), em vez do cinza único que destoava de grupos coloridos. Sobre imagem ou
+    fundo translúcido (< 50%) não há uma cor a acompanhar, então usa um tom suave da cor do texto. A
+    folha do App Folder faz o mesmo com a cor do tema. Os recursos `ScrollThumbBrush` e
+    `ScrollThumbHoverBrush` existem nas paletas clara e escura como padrão (janelas do app).
   - Os comandos de um ícone (remover, recortar, copiar) agem sobre a seleção
     inteira quando o ícone clicado faz parte de uma seleção múltipla, como no
     Explorer (`BuildEntryMenu` → `RemoveEntries` / `CopyEntriesToClipboard`).
@@ -790,7 +799,7 @@ de serialização de `config.json`, extração e corte de transparência de íco
 `IconCacheService`, schema versionado `v3`, resolução unívoca de atalhos `.url` de área de trabalho e rejeição sob ambiguidade, renderização do ladrilho `AppFolderTile`,
 e as regras do lote de 2026-09-30 em `GroupRulesTests`: nomes únicos, compartilhamento por aspecto, `GroupDefaults`
 e recuperação de atalho perdido sem palpite; `DockTests`: pilha acoplada, restauração, persistência e verbos do menu
-da área de trabalho; `NavigationAndLimitTests`: navegação por posição com voltas, limite de 30 e atalhos de grupo; `LocalizationCompletenessTests`: os oito idiomas com as mesmas chaves e marcadores, e toda chave usada pelo código existe) — 101 no total.
+da área de trabalho; `NavigationAndLimitTests`: navegação por posição com voltas, limite de 30 e atalhos de grupo; `LocalizationCompletenessTests`: os oito idiomas com as mesmas chaves e marcadores, e toda chave usada pelo código existe) — 109 no total (`ScrollBarToneTests`: o tom da barra de rolagem).
 
 Além dos testes unitários, há a sonda de caracterização em C# (`tests/GroupProbe`) que sobe
 a aplicação de verdade com um fixture de teste, valida backup por hash, mede a geometria

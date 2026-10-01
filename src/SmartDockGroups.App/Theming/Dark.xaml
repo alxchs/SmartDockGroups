@@ -9,6 +9,10 @@
     <SolidColorBrush x:Key="AppSurface3Brush" Color="#333333" />
 
     <SolidColorBrush x:Key="AppBorderBrush" Color="#3D3D3D" />
+    <!-- Scrollbar thumb. A group (or the folder sheet) overrides these two keys with a tone of its own colour. -->
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#525252" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#B8B8B8" />
+
     <SolidColorBrush x:Key="AppBorderStrongBrush" Color="#525252" />
 
     <SolidColorBrush x:Key="AppTextBrush" Color="#F2F2F2" />
